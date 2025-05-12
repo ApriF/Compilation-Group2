@@ -5,30 +5,35 @@ g=Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/ | "0"
 OPERATOR: /[+\-*\/><]/ | "=="
+TYPE : "int" | "double" 
+DOUBLE : /[0-9][0-9]*[.0-9][0-9]*/ | /[0-9][0-9]*[.][0-9]*[e][\-]*[0-9][0-9]*/
 liste_var:                                                               -> vide
-    | IDENTIFIER ("," IDENTIFIER)*                                       -> vars
-expression: IDENTIFIER                                                   -> var
+    | TYPE IDENTIFIER ("," TYPE IDENTIFIER)*                             -> vars
+expression: TYPE IDENTIFIER                                              -> var
     | expression OPERATOR expression                                     -> operation
     | "(" expression ")"                                                 -> paren
-    | NUMBER                                                             -> number
-commande: commande (commande)*                                     -> sequence
-    | "while" "(" expression ")" "{" commande "}"                          -> while
-    | IDENTIFIER "=" expression ";"                                     -> affectation
-    | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")? -> if
-    | "printf" "(" expression ")" ";"                                           -> print
+    |NUMBER                                                              -> number
+    |DOUBLE                                                              -> double
+commande: commande (commande)*                                              -> sequence
+    | "while" "(" expression ")" "{" commande "}"                           -> while
+    | IDENTIFIER "=" expression ";"                                         -> affectation
+    | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")?  -> if
+    | "printf" "(" expression ")" ";"                                       -> print
     | "skip" ";"                                                            -> skip
 
 programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";" "}"                        -> main
 
 %import common.WS
 %ignore WS
-""", start='programme')
+""", start='commande')
 
 tabu="    "
 
 def pp_expression(e):
-    if e.data in ("var","number"):
+    if e.data in ("number", "double"):
         return f"{e.children[0].value}"
+    elif e.data == "var":
+        return f"{e.children[0].value} {e.children[1].value}"
     elif e.data == "operation":
         return f"{pp_expression(e.children[0])} {e.children[1].value} {pp_expression(e.children[2])}"
     elif e.data == "paren":
@@ -193,10 +198,10 @@ ret"""
 
 
 if __name__ == "__main__":
-    with open("simple.c", "r") as f:
-        code = f.read()
-    ast = g.parse(code)
-    print(asm_prg(ast))
+    #with open("simple.c", "r") as f:
+    #    code = f.read()
+    ast = g.parse("x=3.e-14;")
+    print(pp_commande(ast))
     # ast = g.parse("8-4")
     # ast = g.parse(code)
     # print(asm_exp(ast))
