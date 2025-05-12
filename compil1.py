@@ -5,8 +5,11 @@ g=Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/ | "0"
 OPERATOR: /[+\-*\/><]/ | "=="
+TYPE_PRIM: "int" | "double"
+type: TYPE_PRIM   ->  type_prim
+    | type"*"     ->  pointeur
 liste_var:                                                               -> vide
-    | IDENTIFIER ("," IDENTIFIER)*                                       -> vars
+    | type " " IDENTIFIER ("," type " " IDENTIFIER)*                                       -> vars
 expression: IDENTIFIER                                                   -> var
     | expression OPERATOR expression                                     -> operation
     | "(" expression ")"                                                 -> paren
@@ -14,9 +17,11 @@ expression: IDENTIFIER                                                   -> var
 commande: commande (commande)*                                     -> sequence
     | "while" "(" expression ")" "{" commande "}"                          -> while
     | IDENTIFIER "=" expression ";"                                     -> affectation
+    | type IDENTIFIER ";"                                               -> declaration
     | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")? -> if
     | "printf" "(" expression ")" ";"                                           -> print
     | "skip" ";"                                                            -> skip
+
 
 programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";" "}"                        -> main
 
@@ -37,6 +42,8 @@ def pp_expression(e):
         raise ValueError(f"Unknown expression type: {e.data}")
 
 def pp_commande(c, indent=0):
+    if c.data == "declaration":
+        return f"{tabu*indent}{c.children[0].children[0].value} {c.children[1].value};"
     if c.data == "affectation":
         return f"{tabu*indent}{c.children[0].value} = {pp_expression(c.children[1])};"
     elif c.data == "print":
@@ -54,7 +61,23 @@ def pp_commande(c, indent=0):
     
 def pp_programme(p):
     if p.data=="main":
-        return f"main({','.join([v.value for v in p.children[0].children])}) {{\n{pp_commande(p.children[1],1)} \n{tabu}return ({pp_expression(p.children[2])});\n}}"
+        ret = ""
+        ret += "main("
+        for i in range(0,len(p.children[0].children),2):
+            if p.children[0].children[i].data == "type_prim":
+                ret += f"{p.children[0].children[i].children[0].value} {p.children[0].children[i+1].value}, "
+            if p.children[0].children[i].data == "pointeur":
+                depth = 0
+                child = p.children[0].children[i]
+                while child.data == "pointeur":
+                    depth += 1
+                    child = child.children[0]
+                ret += f"{child.children[0].value}{depth*"*"} {p.children[0].children[i+1].value}, "
+        ret = ret[:-2] + ") {\n"
+        ret += f"{pp_commande(p.children[1],1)} \n"
+        ret += f"{tabu}return ({pp_expression(p.children[2])});\n"
+        ret += "}"
+        return ret
 
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
 def asm_exp(e):
@@ -196,7 +219,7 @@ if __name__ == "__main__":
     with open("simple.c", "r") as f:
         code = f.read()
     ast = g.parse(code)
-    print(asm_prg(ast))
+    print(pp_programme(ast))
     # ast = g.parse("8-4")
     # ast = g.parse(code)
     # print(asm_exp(ast))
