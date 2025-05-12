@@ -57,21 +57,33 @@ def pp_programme(p):
         return f"main({','.join([v.value for v in p.children[0].children])}) {{\n{pp_commande(p.children[1],1)} \n{tabu}return ({pp_expression(p.children[2])});\n}}"
 
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
-def asm_exp(e):
+def asm_exp(e, reg="rax"):
     if e.data == "var":
-        return f"mov rax, [{e.children[0].value}]"
+        return f"mov {reg}, [{e.children[0].value}]"
     if e.data == "number":
-        return f"mov rax, {e.children[0].value}"
-    if e.data == "operation":
-        return f"""{asm_exp(e.children[0])}
-push rax
-{asm_exp(e.children[2])}
-mov rbx, rax
-pop rax
-{op2asm[e.children[1].value]} rax, rbx"""
+        return f"mov {reg}, {e.children[0].value}"
     if e.data == "paren":
-        return asm_exp(e.children[0])
+        return asm_exp(e.children[0], reg)
+    if e.data == "operation":
+        left_reg = reg
+        right_reg = "r8" if reg == "rax" else "rax"
 
+        # x + x Optimised (only one mov)
+        if e.children[0].data == "var" and e.children[2].data == "var" and e.children[0].children[0].value== e.children[2].children[0].value:
+            var_name = e.children[0].children[0].value
+            operation = op2asm[e.children[1].value]
+            return f"""mov {left_reg}, [{var_name}]
+{operation} {left_reg}, {left_reg}"""
+
+        # x + y Optimised (no push/pop)
+        asm_left = asm_exp(e.children[0], left_reg)
+        asm_right = asm_exp(e.children[2], right_reg)
+        operation = op2asm[e.children[1].value]
+        return f"""{asm_left}
+{asm_right}
+{operation} {left_reg}, {right_reg}"""
+    
+    
 compteur = 0
 def asm_cmd(c):
     global compteur
@@ -95,12 +107,18 @@ mov rsi, rax
 xor rax, rax
 call printf"""
     if c.data == "if":
+        # Dead code elimination 1: if (x) {machin} else {chose} -> machin with x!=0
+        if c.children[0].data == "number" and c.children[0].value!="0" or c.children[0].data=="var" and c.children[0].children[0].value != "0":
+            return asm_cmd(c.children[1])
+        # Dead code elimination 2: if (x) {machin} [else {chose}] -> nop if no chose, else chose with x == 0
+        if c.children[0].data == "number" and c.children[0].value == "0" or c.children[0].data=="var" and c.children[0].children[0].value == "0":
+            return asm_cmd(c.children[2]) if len(c.children) > 2 else "nop"
         return f"""{asm_exp(c.children[0])}
 cmp rax, 0
 jz at{compteur_local}
-{asm_cmd(c.children[2])}
+{asm_cmd(c.children[1])}
 jmp end{compteur_local}
-at{compteur_local}: {asm_cmd(c.children[1])}
+at{compteur_local}: {asm_cmd(c.children[2]) if len(c.children) > 2 else "nop"}
 end{compteur_local}: nop"""
     if c.data == "while":
         return f"""loop{compteur_local}: {asm_exp(c.children[0])}
