@@ -14,6 +14,8 @@ expression: IDENTIFIER                                                   -> var
     | expression OPERATOR expression                                     -> operation
     | "(" expression ")"                                                 -> paren
     | NUMBER                                                             -> number
+    | "&" IDENTIFIER                                                     -> esperlu
+    | "*" IDENTIFIER                                                     -> deref
 commande: commande (commande)*                                     -> sequence
     | "while" "(" expression ")" "{" commande "}"                          -> while
     | IDENTIFIER "=" expression ";"                                     -> affectation
@@ -38,6 +40,10 @@ def pp_expression(e):
         return f"{pp_expression(e.children[0])} {e.children[1].value} {pp_expression(e.children[2])}"
     elif e.data == "paren":
         return f"({pp_expression(e.children[0])})"
+    elif e.data == "esperlu":
+        return f"&{e.children[0].value}"
+    elif e.data == "deref":
+        return f"*{pp_expression(e.children[0])}"    
     else:
         raise ValueError(f"Unknown expression type: {e.data}")
 
@@ -220,6 +226,7 @@ if __name__ == "__main__":
         code = f.read()
     ast = g.parse(code)
     print(pp_programme(ast))
+
     # ast = g.parse("8-4")
     # ast = g.parse(code)
     # print(asm_exp(ast))
