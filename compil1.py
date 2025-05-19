@@ -1,6 +1,11 @@
 from lark import Lark
 print("\n")
 
+
+
+
+
+
 g=Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/ | "0"
@@ -19,15 +24,15 @@ expression: IDENTIFIER                                                   -> var
     | "*" expression                                                     -> deref
     | "malloc(" expression ")"                                           -> allocation
     |DOUBLE                                                              -> double
-commande: commande (commande)*                                                    -> sequence
-    | "while" "(" expression ")" "{" commande "}"                         -> while
-    | identifier_bis "=" expression ";"                                          -> affectation
+commande: commande (commande)*                                           -> sequence
+    | "while" "(" expression ")" "{" commande "}"                        -> while
+    | identifier_bis "=" expression ";"                                  -> affectation
     | type IDENTIFIER ";"                                                -> declaration
     | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")?  -> if
     | "printf" "(" expression ")" ";"                                       -> print
     | "skip" ";"                                                            -> skip
-identifier_bis: IDENTIFIER                                               -> var
-    | "*" identifier_bis                                                 -> deref
+identifier_bis: IDENTIFIER                                                  -> var
+    | "*" identifier_bis                                                    -> deref
 
 
 programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";" "}"                        -> main
@@ -108,8 +113,16 @@ def asm_exp(e):
         return f"mov rax, [{e.children[0].value}]"
     if e.data == "number":
         return f"mov rax, {e.children[0].value}"
+    if e.data == "esperlu":
+        return f"lea rax, [{e.children[0].value}]"
+
+    if e.data == "deref":
+        return f"""{asm_exp(e.children[0])}
+mov rax, [rax]"""
+
     if e.data == "operation":
         return f"""{asm_exp(e.children[0])}
+    
 push rax
 {asm_exp(e.children[2])}
 mov rbx, rax
@@ -118,22 +131,46 @@ pop rax
     if e.data == "paren":
         return asm_exp(e.children[0])
 
+
+
 compteur = 0
 def asm_cmd(c):
     global compteur
     compteur += 1
     compteur_local = compteur
 
+
+
     if c.data == "affectation":
-        return f"""{asm_exp(c.children[1])}
-mov [{c.children[0].value}], rax"""
+        rhs = asm_exp(c.children[1])
+        lhs = c.children[0]
+        if lhs.data == "var":
+            return f"""{rhs}
+    mov [{lhs.children[0].value}], rax"""
+        
+        elif lhs.data == "deref":
+            return f"""{rhs}
+    mov rbx, rax
+    {asm_exp(lhs.children[0])}
+    mov [rax], rbx"""
+
+    elif c.data == "allocation":
+        return f"""
+    {asm_exp(c.children[0])}
+    mov rdi, rax
+    call malloc
+    """
+
+
     if c.data == "skip":
         return "nop"
+    
     if c.data == "sequence":
         if len(c.children) == 1:
             return asm_cmd(c.children[0])
         return f"""{asm_cmd(c.children[0])}
 {asm_cmd(c.children[1])}"""
+    
     if c.data == "print":
         return f"""{asm_exp(c.children[0])}
 mov rdi, fmt
@@ -216,7 +253,7 @@ def initialisation_variables(liste_vars):
 
 def asm_prg(p):
     if p.data == "main":
-        return f"""extern printf, atoi
+        return f"""extern printf, atoi, malloc
 section .data
 argv: dq 0
 {declaration_variables(get_vars_commande(p.children[1]))}
@@ -243,6 +280,7 @@ if __name__ == "__main__":
         code = f.read()
     ast = g.parse(code)
     print(pp_programme(ast))
+    print(asm_prg(ast))
 
     # ast = g.parse("8-4")
     # ast = g.parse(code)
