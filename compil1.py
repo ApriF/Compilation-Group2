@@ -4,19 +4,31 @@ print("\n")
 g=Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/ | "0"
-OPERATOR: /[+\-*\/><]/ | "==" | "!="
+OPERATOR: /[+\-*\/><]/ | "=="
+TYPE_PRIM : "int" | "double"
+type: TYPE_PRIM   ->  type_prim
+    | type"*"     ->  pointeur 
+DOUBLE : /[0-9][0-9]*[.0-9][0-9]*/ | /[0-9][0-9]*[.][0-9]*[e][\-]*[0-9][0-9]*/
 liste_var:                                                               -> vide
-    | IDENTIFIER ("," IDENTIFIER)*                                       -> vars
+    | type " " IDENTIFIER ("," type " " IDENTIFIER)*                     -> vars
 expression: IDENTIFIER                                                   -> var
     | expression OPERATOR expression                                     -> operation
     | "(" expression ")"                                                 -> paren
-    | NUMBER                                                             -> number
-commande: commande (commande)*                                     -> sequence
-    | "while" "(" expression ")" "{" commande "}"                          -> while
-    | IDENTIFIER "=" expression ";"                                     -> affectation
-    | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")? -> if
-    | "printf" "(" expression ")" ";"                                           -> print
+    |NUMBER                                                              -> number
+    | "&" IDENTIFIER                                                     -> esperlu
+    | "*" expression                                                     -> deref
+    | "malloc(" expression ")"                                           -> allocation
+    |DOUBLE                                                              -> double
+commande: commande (commande)*                                                    -> sequence
+    | "while" "(" expression ")" "{" commande "}"                         -> while
+    | identifier_bis "=" expression ";"                                          -> affectation
+    | type IDENTIFIER ";"                                                -> declaration
+    | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")?  -> if
+    | "printf" "(" expression ")" ";"                                       -> print
     | "skip" ";"                                                            -> skip
+identifier_bis: IDENTIFIER                                               -> var
+    | "*" identifier_bis                                                 -> deref
+
 
 programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";" "}"                        -> main
 
@@ -27,18 +39,36 @@ programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";"
 tabu="    "
 
 def pp_expression(e):
-    if e.data in ("var","number"):
+    if e.data in ("number", "double"):
+        return f"{e.children[0].value}"
+    elif e.data == "var":
         return f"{e.children[0].value}"
     elif e.data == "operation":
         return f"{pp_expression(e.children[0])} {e.children[1].value} {pp_expression(e.children[2])}"
     elif e.data == "paren":
         return f"({pp_expression(e.children[0])})"
+    elif e.data == "esperlu":
+        return f"&{e.children[0].value}"
+    elif e.data == "deref":
+        return f"*{pp_expression(e.children[0])}"
+    elif e.data == "allocation":
+        return f"malloc({pp_expression(e.children[0])})"        
     else:
         raise ValueError(f"Unknown expression type: {e.data}")
 
+def pp_type(t):
+    if t.data == "type_prim":
+        return f"{t.children[0].value}"
+    elif t.data == "pointeur":
+        return f"{pp_type(t.children[0])}*"
+    else:
+        raise ValueError(f"Unknown type: {t.data}")
+
 def pp_commande(c, indent=0):
+    if c.data == "declaration":
+        return f"{tabu*indent}{pp_type(c.children[0])} {c.children[1].value};"
     if c.data == "affectation":
-        return f"{tabu*indent}{c.children[0].value} = {pp_expression(c.children[1])};"
+        return f"{tabu*indent}{pp_expression(c.children[0])} = {pp_expression(c.children[1])};"
     elif c.data == "print":
         return f"{tabu*indent}printf({pp_expression(c.children[0])});"
     elif c.data == "skip":
@@ -54,7 +84,23 @@ def pp_commande(c, indent=0):
     
 def pp_programme(p):
     if p.data=="main":
-        return f"main({','.join([v.value for v in p.children[0].children])}) {{\n{pp_commande(p.children[1],1)} \n{tabu}return ({pp_expression(p.children[2])});\n}}"
+        ret = ""
+        ret += "main("
+        for i in range(0,len(p.children[0].children),2):
+            if p.children[0].children[i].data == "type_prim":
+                ret += f"{p.children[0].children[i].children[0].value} {p.children[0].children[i+1].value}, "
+            if p.children[0].children[i].data == "pointeur":
+                depth = 0
+                child = p.children[0].children[i]
+                while child.data == "pointeur":
+                    depth += 1
+                    child = child.children[0]
+                ret += f"{child.children[0].value}{depth*"*"} {p.children[0].children[i+1].value}, "
+        ret = ret[:-2] + ") {\n"
+        ret += f"{pp_commande(p.children[1],1)} \n"
+        ret += f"{tabu}return ({pp_expression(p.children[2])});\n"
+        ret += "}"
+        return ret
 
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
 def asm_exp(e, available_registers=None):
@@ -250,11 +296,12 @@ if __name__ == "__main__":
     with open("simple.c", "r") as f:
         code = f.read()
     ast = g.parse(code)
-    asm_code = asm_prg(ast)
-    print(asm_code)
+
     #optimized_asm_code = optimize_mov_sequences(asm_code)
     #print(optimized_asm_code)
-    # ast = g.parse("8-4")
+
+    #print(pp_programme(ast))
+# ast = g.parse("8-4")
     # ast = g.parse(code)  # Deuxième ligne : mov depuis [x]
     # print(asm_exp(ast))
 # print(ast.children)
