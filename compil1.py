@@ -5,11 +5,13 @@ g=Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/ | "0"
 OPERATOR: /[+\-*\/><]/ | "=="
-TYPE : "int" | "double" 
+TYPE_PRIM : "int" | "double"
+type: TYPE_PRIM   ->  type_prim
+    | type"*"     ->  pointeur 
 DOUBLE : /[0-9][0-9]*[.0-9][0-9]*/ | /[0-9][0-9]*[.][0-9]*[e][\-]*[0-9][0-9]*/
 liste_var:                                                               -> vide
-    | TYPE IDENTIFIER ("," TYPE IDENTIFIER)*                             -> vars
-expression: TYPE IDENTIFIER                                              -> var
+    | type IDENTIFIER ("," type IDENTIFIER)*                             -> vars
+expression: type IDENTIFIER                                              -> var
     | expression OPERATOR expression                                     -> operation
     | "(" expression ")"                                                 -> paren
     |NUMBER                                                              -> number
@@ -200,7 +202,7 @@ ret"""
 if __name__ == "__main__":
     #with open("simple.c", "r") as f:
     #    code = f.read()
-    ast = g.parse("x=3.e-14;")
+    ast = g.parse("x = 3.14;")
     print(pp_commande(ast))
     # ast = g.parse("8-4")
     # ast = g.parse(code)
