@@ -9,20 +9,22 @@ TYPE_PRIM: "int" | "double"
 type: TYPE_PRIM   ->  type_prim
     | type"*"     ->  pointeur
 liste_var:                                                               -> vide
-    | type " " IDENTIFIER ("," type " " IDENTIFIER)*                                       -> vars
+    | type " " IDENTIFIER ("," type " " IDENTIFIER)*                     -> vars
 expression: IDENTIFIER                                                   -> var
     | expression OPERATOR expression                                     -> operation
     | "(" expression ")"                                                 -> paren
     | NUMBER                                                             -> number
     | "&" IDENTIFIER                                                     -> esperlu
-    | "*" IDENTIFIER                                                     -> deref
-commande: commande (commande)*                                     -> sequence
-    | "while" "(" expression ")" "{" commande "}"                          -> while
-    | IDENTIFIER "=" expression ";"                                     -> affectation
-    | type IDENTIFIER ";"                                               -> declaration
+    | "*" expression                                                     -> deref
+commande: commande (commande)*                                           -> sequence
+    | "while" "(" expression ")" "{" commande "}"                        -> while
+    | identifier_bis "=" expression ";"                                      -> affectation
+    | type IDENTIFIER ";"                                                -> declaration
     | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")? -> if
     | "printf" "(" expression ")" ";"                                           -> print
     | "skip" ";"                                                            -> skip
+identifier_bis: IDENTIFIER                                               -> var
+    | "*" identifier_bis                                                 -> deref
 
 
 programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";" "}"                        -> main
@@ -47,11 +49,19 @@ def pp_expression(e):
     else:
         raise ValueError(f"Unknown expression type: {e.data}")
 
+def pp_type(t):
+    if t.data == "type_prim":
+        return f"{t.children[0].value}"
+    elif t.data == "pointeur":
+        return f"{pp_type(t.children[0])}*"
+    else:
+        raise ValueError(f"Unknown type: {t.data}")
+
 def pp_commande(c, indent=0):
     if c.data == "declaration":
-        return f"{tabu*indent}{c.children[0].children[0].value} {c.children[1].value};"
+        return f"{tabu*indent}{pp_type(c.children[0])} {c.children[1].value};"
     if c.data == "affectation":
-        return f"{tabu*indent}{c.children[0].value} = {pp_expression(c.children[1])};"
+        return f"{tabu*indent}{pp_expression(c.children[0])} = {pp_expression(c.children[1])};"
     elif c.data == "print":
         return f"{tabu*indent}printf({pp_expression(c.children[0])});"
     elif c.data == "skip":
