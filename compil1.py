@@ -5,24 +5,26 @@ g=Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/ | "0"
 OPERATOR: /[+\-*\/><]/ | "=="
-TYPE_PRIM: "int" | "double"
+TYPE_PRIM : "int" | "double"
 type: TYPE_PRIM   ->  type_prim
-    | type"*"     ->  pointeur
+    | type"*"     ->  pointeur 
+DOUBLE : /[0-9][0-9]*[.0-9][0-9]*/ | /[0-9][0-9]*[.][0-9]*[e][\-]*[0-9][0-9]*/
 liste_var:                                                               -> vide
     | type " " IDENTIFIER ("," type " " IDENTIFIER)*                     -> vars
 expression: IDENTIFIER                                                   -> var
     | expression OPERATOR expression                                     -> operation
     | "(" expression ")"                                                 -> paren
-    | NUMBER                                                             -> number
+    |NUMBER                                                              -> number
     | "&" IDENTIFIER                                                     -> esperlu
     | "*" expression                                                     -> deref
     | "malloc(" expression ")"                                           -> allocation
-commande: commande (commande)*                                           -> sequence
-    | "while" "(" expression ")" "{" commande "}"                        -> while
-    | identifier_bis "=" expression ";"                                      -> affectation
+    |DOUBLE                                                              -> double
+commande: commande (commande)*                                                    -> sequence
+    | "while" "(" expression ")" "{" commande "}"                         -> while
+    | identifier_bis "=" expression ";"                                          -> affectation
     | type IDENTIFIER ";"                                                -> declaration
-    | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")? -> if
-    | "printf" "(" expression ")" ";"                                           -> print
+    | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")?  -> if
+    | "printf" "(" expression ")" ";"                                       -> print
     | "skip" ";"                                                            -> skip
 identifier_bis: IDENTIFIER                                               -> var
     | "*" identifier_bis                                                 -> deref
@@ -32,13 +34,15 @@ programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";"
 
 %import common.WS
 %ignore WS
-""", start='programme')
+""", start='commande')
 
 tabu="    "
 
 def pp_expression(e):
-    if e.data in ("var","number"):
+    if e.data in ("number", "double"):
         return f"{e.children[0].value}"
+    elif e.data == "var":
+        return f"{e.children[0].value} {e.children[1].value}"
     elif e.data == "operation":
         return f"{pp_expression(e.children[0])} {e.children[1].value} {pp_expression(e.children[2])}"
     elif e.data == "paren":
