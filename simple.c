@@ -5,8 +5,8 @@ main(x,y,z){
         {x=x-1;
         y=y+3;
         z=z+x+z;
-        y=y+y+z+y+y;
+        y=(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y))))))));
             }
-   z=x+y+z;
 }
+z=((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z)))));
 return(z);}
