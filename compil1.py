@@ -34,7 +34,7 @@ programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";"
 
 %import common.WS
 %ignore WS
-""", start='commande')
+""", start='programme')
 
 tabu="    "
 
@@ -42,7 +42,7 @@ def pp_expression(e):
     if e.data in ("number", "double"):
         return f"{e.children[0].value}"
     elif e.data == "var":
-        return f"{e.children[0].value} {e.children[1].value}"
+        return f"{e.children[0].value}"
     elif e.data == "operation":
         return f"{pp_expression(e.children[0])} {e.children[1].value} {pp_expression(e.children[2])}"
     elif e.data == "paren":
