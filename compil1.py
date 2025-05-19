@@ -21,7 +21,7 @@ expression: IDENTIFIER                                                   -> var
     |DOUBLE                                                              -> double
 commande: commande (commande)*                                                    -> sequence
     | "while" "(" expression ")" "{" commande "}"                         -> while
-    | identifier_bis "=" expression ";"                                          -> affectation
+    | identifier_bis "=" ("("TYPE_PRIM")")* expression ";"                                          -> affectation
     | type IDENTIFIER ";"                                                -> declaration
     | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")?  -> if
     | "printf" "(" expression ")" ";"                                       -> print
@@ -34,7 +34,7 @@ programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";"
 
 %import common.WS
 %ignore WS
-""", start='programme')
+""", start='commande')
 
 tabu="    "
 
@@ -68,7 +68,10 @@ def pp_commande(c, indent=0):
     if c.data == "declaration":
         return f"{tabu*indent}{pp_type(c.children[0])} {c.children[1].value};"
     if c.data == "affectation":
-        return f"{tabu*indent}{pp_expression(c.children[0])} = {pp_expression(c.children[1])};"
+        if len(c.children) == 3:
+            return f"{tabu*indent}{pp_expression(c.children[0])} = ({c.children[1].value}) {pp_expression(c.children[2])};"
+        else:
+            return f"{tabu*indent}{pp_expression(c.children[0])} = {pp_expression(c.children[1])};"
     elif c.data == "print":
         return f"{tabu*indent}printf({pp_expression(c.children[0])});"
     elif c.data == "skip":
@@ -239,14 +242,14 @@ ret"""
 
 
 if __name__ == "__main__":
-    with open("simple.c", "r") as f:
-        code = f.read()
-    ast = g.parse(code)
-    print(pp_programme(ast))
+    #with open("simple.c", "r") as f:
+    #    code = f.read()
+    #ast = g.parse(code)
+    #print(pp_programme(ast))
 
     # ast = g.parse("8-4")
-    # ast = g.parse(code)
-    # print(asm_exp(ast))
+    ast = g.parse("z =(int) i + k;")
+    print(pp_commande(ast))
 # print(ast.children)
 # print(ast.children[0].type)
 # print(ast.children[0].value)
