@@ -16,6 +16,7 @@ expression: IDENTIFIER                                                   -> var
     | NUMBER                                                             -> number
     | "&" IDENTIFIER                                                     -> esperlu
     | "*" expression                                                     -> deref
+    | "malloc(" expression ")"                                           -> allocation
 commande: commande (commande)*                                           -> sequence
     | "while" "(" expression ")" "{" commande "}"                        -> while
     | identifier_bis "=" expression ";"                                      -> affectation
@@ -45,7 +46,9 @@ def pp_expression(e):
     elif e.data == "esperlu":
         return f"&{e.children[0].value}"
     elif e.data == "deref":
-        return f"*{pp_expression(e.children[0])}"    
+        return f"*{pp_expression(e.children[0])}"
+    elif e.data == "allocation":
+        return f"malloc({pp_expression(e.children[0])})"        
     else:
         raise ValueError(f"Unknown expression type: {e.data}")
 
