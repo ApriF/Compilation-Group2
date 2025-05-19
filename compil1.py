@@ -59,8 +59,9 @@ def pp_programme(p):
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
 def asm_exp(e, available_registers=None):
     """
-    Génère le code assembleur pour une expression en utilisant dynamiquement les registres de r8 à r15.
-    Utilise push/pop si tous les registres sont occupés.
+    Génère le code assembleur pour une expression en utilisant dynamiquement les registres de r8 à r15 et rbx et rcx.
+    Réutilise le même registre pour une suite d'opérations dans une même parenthèse.
+    Gère le cas spécial où les deux opérandes sont identiques (e.g., z + z).
     """
     if available_registers is None:
         available_registers = ["rax", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx","rcx"]
@@ -74,6 +75,15 @@ def asm_exp(e, available_registers=None):
     if e.data == "paren":
         return asm_exp(e.children[0], available_registers)
     if e.data == "operation":
+        # Optimisation de type x+x
+        if e.children[0].data == "var" and e.children[2].data == "var":
+            reg = available_registers[0]
+            var_name1 = e.children[0].children[0].value
+            var_name2 = e.children[2].children[0].value
+            operation = op2asm[e.children[1].value]
+            return f"""mov {reg}, [{var_name1}]
+{operation} {reg}, [{var_name2}]""", reg
+
         # Cas où moins de 2 regs dispos : on utilise push/pop pour rien perdre
         if len(available_registers) < 2:
             asm_left, left_reg = asm_exp(e.children[0], available_registers)
@@ -219,15 +229,9 @@ pop rbp
 ret"""
 
 def optimize_mov_sequences(asm_code):
-    """
-    Supprime les séquences redondantes de type :
-    mov [x], rax
-    mov rax, [x]
-    """
     lines = asm_code.splitlines()
     opti_lines = []
     i = 0
-
     while i < len(lines):
         if (i + 1 < len(lines)
             and lines[i].startswith("mov [")and "rax" in lines[i]
@@ -240,7 +244,6 @@ def optimize_mov_sequences(asm_code):
                 continue
         opti_lines.append(lines[i])
         i += 1
-
     return "\n".join(opti_lines)
 
 if __name__ == "__main__":
