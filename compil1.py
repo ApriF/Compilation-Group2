@@ -131,6 +131,13 @@ pop rax
     if e.data == "paren":
         return asm_exp(e.children[0])
 
+def recursive_deref(e):
+    if e.data == "var":
+        return f"lea rax, [{e.children[0].value}]"
+    elif e.data == "deref":
+        rec = recursive_deref(e.children[0])
+        return f"""{rec}
+mov rax, [rax]"""
 
 
 compteur = 0
@@ -144,15 +151,11 @@ def asm_cmd(c):
     if c.data == "affectation":
         rhs = asm_exp(c.children[1])
         lhs = c.children[0]
-        if lhs.data == "var":
-            return f"""{rhs}
-    mov [{lhs.children[0].value}], rax"""
-        
-        elif lhs.data == "deref":
-            return f"""{rhs}
+        return f"""{rhs}
     mov rbx, rax
-    {asm_exp(lhs.children[0])}
+    {recursive_deref(lhs)}
     mov [rax], rbx"""
+
 
     elif c.data == "allocation":
         return f"""
