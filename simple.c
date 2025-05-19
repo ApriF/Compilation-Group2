@@ -1,19 +1,12 @@
-main(int** a,double b) {
-    int c;
-    c = **a+b;
-    int* p;
-    int i;
-    i=4;
-    p = &i;
-    i = *p + 4;
-    int* q;
-    q = &p;
-    *p = i;
-    **q = i;
-    p = p+i;
-    p = malloc(8);
-    double x;
-    x = 3.14;
-    x = 3.e14;
-    return(c);
+main(x,y,z){
+    c=0;
+    if (c){
+    while(x)
+        {x=x-1;
+        y=y+3;
+        z=z+x+z;
+        y=(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y))))))));
+            }
 }
+z=((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z)))));
+return(z);}

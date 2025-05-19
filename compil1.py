@@ -103,30 +103,64 @@ def pp_programme(p):
         return ret
 
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
-def asm_exp(e):
+def asm_exp(e, available_registers=None):
+    """
+    Génère le code assembleur pour une expression en utilisant dynamiquement les registres de r8 à r15 et rbx et rcx.
+    Réutilise le même registre pour une suite d'opérations dans une même parenthèse.
+    Gère le cas spécial où les deux opérandes sont identiques (e.g., z + z).
+    """
+    if available_registers is None:
+        available_registers = ["rax", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx","rcx"]
+
     if e.data == "var":
-        return f"mov rax, [{e.children[0].value}]"
+        reg = available_registers[0]
+        return f"mov {reg}, [{e.children[0].value}]", reg
     if e.data == "number":
-        return f"mov rax, {e.children[0].value}"
-    if e.data == "operation":
-        return f"""{asm_exp(e.children[0])}
-push rax
-{asm_exp(e.children[2])}
-mov rbx, rax
-pop rax
-{op2asm[e.children[1].value]} rax, rbx"""
+        reg = available_registers[0]
+        return f"mov {reg}, {e.children[0].value}", reg
     if e.data == "paren":
-        return asm_exp(e.children[0])
+        return asm_exp(e.children[0], available_registers)
+    if e.data == "operation":
+        # Optimisation de type x+x
+        if e.children[0].data == "var" and e.children[2].data == "var":
+            reg = available_registers[0]
+            var_name1 = e.children[0].children[0].value
+            var_name2 = e.children[2].children[0].value
+            operation = op2asm[e.children[1].value]
+            return f"""mov {reg}, [{var_name1}]
+{operation} {reg}, [{var_name2}]""", reg
+
+        # Cas où moins de 2 regs dispos : on utilise push/pop pour rien perdre
+        if len(available_registers) < 2:
+            asm_left, left_reg = asm_exp(e.children[0], available_registers)
+            asm_right, right_reg = asm_exp(e.children[2], available_registers)
+            operation = op2asm[e.children[1].value]
+            return f"""push {left_reg}
+{asm_right}
+pop {left_reg}
+{operation} {left_reg}, {right_reg}""", left_reg
+
+        # Cas où on a au moins 2 regs dispos : on les utilise
+        left_reg = available_registers[0]
+        right_reg = available_registers[1]
+        asm_left, _ = asm_exp(e.children[0], available_registers)
+        asm_right, _ = asm_exp(e.children[2], available_registers[1:])
+        operation = op2asm[e.children[1].value]
+        return f"""{asm_left}
+{asm_right}
+{operation} {left_reg}, {right_reg}""", left_reg
 
 compteur = 0
+
 def asm_cmd(c):
     global compteur
     compteur += 1
     compteur_local = compteur
 
     if c.data == "affectation":
-        return f"""{asm_exp(c.children[1])}
-mov [{c.children[0].value}], rax"""
+        asm_code, result_reg = asm_exp(c.children[1])
+        return f"""{asm_code}
+mov [{c.children[0].value}], {result_reg}"""
     if c.data == "skip":
         return "nop"
     if c.data == "sequence":
@@ -135,22 +169,25 @@ mov [{c.children[0].value}], rax"""
         return f"""{asm_cmd(c.children[0])}
 {asm_cmd(c.children[1])}"""
     if c.data == "print":
-        return f"""{asm_exp(c.children[0])}
+        asm_code, result_reg = asm_exp(c.children[0])
+        return f"""{asm_code}
 mov rdi, fmt
-mov rsi, rax
+mov rsi, {result_reg}
 xor rax, rax
 call printf"""
     if c.data == "if":
-        return f"""{asm_exp(c.children[0])}
-cmp rax, 0
+        asm_code, result_reg = asm_exp(c.children[0])
+        return f"""{asm_code}
+cmp {result_reg}, 0
 jz at{compteur_local}
-{asm_cmd(c.children[2])}
+{asm_cmd(c.children[1])}
 jmp end{compteur_local}
-at{compteur_local}: {asm_cmd(c.children[1])}
+at{compteur_local}: {asm_cmd(c.children[2]) if len(c.children) > 2 else "nop"}
 end{compteur_local}: nop"""
     if c.data == "while":
-        return f"""loop{compteur_local}: {asm_exp(c.children[0])}
-cmp rax, 0
+        asm_code, result_reg = asm_exp(c.children[0])
+        return f"""loop{compteur_local}: {asm_code}
+cmp {result_reg}, 0
 jz end{compteur_local}
 {asm_cmd(c.children[1])}
 jmp loop{compteur_local}
@@ -229,7 +266,7 @@ push rbp
 mov [argv], rsi
 {initialisation_variables(p.children[0])}
 {asm_cmd(p.children[1])}
-{asm_exp(p.children[2])}
+{asm_exp(p.children[2])[0]}
 mov rdi, fmt
 mov rsi, rax
 xor rax, rax
@@ -237,15 +274,35 @@ call printf
 pop rbp
 ret"""
 
+def optimize_mov_sequences(asm_code):
+    lines = asm_code.splitlines()
+    opti_lines = []
+    i = 0
+    while i < len(lines):
+        if (i + 1 < len(lines)
+            and lines[i].startswith("mov [")and "rax" in lines[i]
+            and lines[i + 1].startswith("mov rax, [")
+        ):
+            var1 = lines[i].split("[")[1].split("]")[0]
+            var2 = lines[i + 1].split("[")[1].split("]")[0]
+            if var1 == var2:
+                i += 2
+                continue
+        opti_lines.append(lines[i])
+        i += 1
+    return "\n".join(opti_lines)
 
 if __name__ == "__main__":
     with open("simple.c", "r") as f:
         code = f.read()
     ast = g.parse(code)
-    print(pp_programme(ast))
 
-    # ast = g.parse("8-4")
-    # ast = g.parse(code)
+    #optimized_asm_code = optimize_mov_sequences(asm_code)
+    #print(optimized_asm_code)
+
+    #print(pp_programme(ast))
+# ast = g.parse("8-4")
+    # ast = g.parse(code)  # Deuxième ligne : mov depuis [x]
     # print(asm_exp(ast))
 # print(ast.children)
 # print(ast.children[0].type)
