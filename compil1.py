@@ -4,7 +4,7 @@ print("\n")
 g=Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/ | "0"
-OPERATOR: /[+\-*\/><]/ | "=="
+OPERATOR: /[+\-*\/><]/ | "==" | "!="
 liste_var:                                                               -> vide
     | IDENTIFIER ("," IDENTIFIER)*                                       -> vars
 expression: IDENTIFIER                                                   -> var
@@ -85,6 +85,7 @@ def asm_exp(e, reg="rax"):
     
     
 compteur = 0
+
 def asm_cmd(c):
     global compteur
     compteur += 1
@@ -107,11 +108,11 @@ mov rsi, rax
 xor rax, rax
 call printf"""
     if c.data == "if":
-        # Dead code elimination 1: if (x) {machin} else {chose} -> machin with x!=0
-        if c.children[0].data == "number" and c.children[0].value!="0" or c.children[0].data=="var" and c.children[0].children[0].value != "0":
+        # Dead code elimination 1: if (0) {machin} else {chose} -> machin
+        if c.children[0].data == "number" and c.children[0].value!="0":
             return asm_cmd(c.children[1])
-        # Dead code elimination 2: if (x) {machin} [else {chose}] -> nop if no chose, else chose with x == 0
-        if c.children[0].data == "number" and c.children[0].value == "0" or c.children[0].data=="var" and c.children[0].children[0].value == "0":
+        # Dead code elimination 2: if (n) {machin} [else {chose}] -> nop if no chose, else chose with n == 0
+        if c.children[0].data == "number" and c.children[0].value == "0":
             return asm_cmd(c.children[2]) if len(c.children) > 2 else "nop"
         return f"""{asm_exp(c.children[0])}
 cmp rax, 0
@@ -211,7 +212,7 @@ ret"""
 
 
 if __name__ == "__main__":
-    with open("simple.c", "r") as f:
+    with open("Compilation-Group2/simple.c", "r") as f:
         code = f.read()
     ast = g.parse(code)
     print(asm_prg(ast))
