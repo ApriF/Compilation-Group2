@@ -5,6 +5,7 @@ g=Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/ | "0"
 OPERATOR: /[+\-*\/><]/ | "=="
+DOUBLE : /[0-9][0-9]*[.0-9][0-9]*/ | /[0-9][0-9]*[.][0-9]*[e][\-]*[0-9][0-9]*/
 TYPE_PRIM: "int" | "double"
 type: TYPE_PRIM   ->  type_prim
     | type"*"     ->  pointeur
@@ -38,13 +39,15 @@ programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";"
 
 %import common.WS
 %ignore WS
-""", start='programme')
+""", start='commande')
 
 tabu="    "
 
 def pp_expression(e):
-    if e.data in ("var","number"):
+    if e.data in ("number", "double"):
         return f"{e.children[0].value}"
+    elif e.data == "var":
+        return f"{e.children[0].value} {e.children[1].value}"
     elif e.data == "operation":
         return f"{pp_expression(e.children[0])} {e.children[1].value} {pp_expression(e.children[2])}"
     elif e.data == "paren":
@@ -245,7 +248,6 @@ if __name__ == "__main__":
         code = f.read()
     ast = g.parse(code)
     print(pp_programme(ast))
-
     # ast = g.parse("8-4")
     # ast = g.parse(code)
     # print(asm_exp(ast))
