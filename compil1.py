@@ -64,7 +64,7 @@ def asm_exp(e, available_registers=None):
     Gère le cas spécial où les deux opérandes sont identiques (e.g., z + z).
     """
     if available_registers is None:
-        available_registers = ["rax", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx","rcx"]
+        available_registers = ["rax", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx"]
 
     if e.data == "var":
         reg = available_registers[0]
@@ -84,15 +84,17 @@ def asm_exp(e, available_registers=None):
             return f"""mov {reg}, [{var_name1}]
 {operation} {reg}, [{var_name2}]""", reg
 
-        # Cas où moins de 2 regs dispos : on utilise push/pop pour rien perdre
+        # Cas où 1 seul reg dispo: on utilise rcx avec du push/pop
         if len(available_registers) < 2:
             asm_left, left_reg = asm_exp(e.children[0], available_registers)
             asm_right, right_reg = asm_exp(e.children[2], available_registers)
             operation = op2asm[e.children[1].value]
-            return f"""push {left_reg}
+            return f"""{asm_left}
+push rcx
+mov rcx, {right_reg}
 {asm_right}
-pop {left_reg}
-{operation} {left_reg}, {right_reg}""", left_reg
+{operation} {left_reg}, rcx
+pop rcx""", left_reg
 
         # Cas où on a au moins 2 regs dispos : on les utilise
         left_reg = available_registers[0]

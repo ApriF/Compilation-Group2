@@ -8,5 +8,5 @@ main(x,y,z){
         y=(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y)+((z+z)+(x+y))))))));
             }
 }
-z=((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z+((z+z+z)+(y+y)+z)))));
+z=((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z+((x+x+x)+(y+y)+z)))))))))));
 return(z);}
