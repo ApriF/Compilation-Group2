@@ -84,18 +84,18 @@ def asm_exp(e, available_registers=None):
             return f"""mov {reg}, [{var_name1}]
 {operation} {reg}, [{var_name2}]""", reg
 
-        # Cas où 1 seul reg dispo: on utilise rcx avec du push/pop
+        # Cas où 1 seul reg dispo: on utilise rcx avec du push/pop sur rbx (le dernier dispo)
         if len(available_registers) < 2:
-            asm_left, left_reg = asm_exp(e.children[0], available_registers)
-            asm_right, right_reg = asm_exp(e.children[2], available_registers)
-            operation = op2asm[e.children[1].value]
+            assert(available_registers== ["rbx"])
+            asm_left,_ = asm_exp(e.children[0], available_registers)
+            asm_right, _ = asm_exp(e.children[2], available_registers)
             return f"""{asm_left}
-push rcx
-mov rcx, {right_reg}
+push rbx
 {asm_right}
-{operation} {left_reg}, rcx
-pop rcx""", left_reg
-
+mov rcx, rbx
+pop rbx
+{op2asm[e.children[1].value]} rbx, rcx""", available_registers
+        
         # Cas où on a au moins 2 regs dispos : on les utilise
         left_reg = available_registers[0]
         right_reg = available_registers[1]
@@ -230,7 +230,7 @@ call printf
 pop rbp
 ret"""
 
-def optimize_mov_sequences(asm_code):
+def optimize_asm(asm_code):
     lines = asm_code.splitlines()
     opti_lines = []
     i = 0
@@ -254,8 +254,8 @@ if __name__ == "__main__":
     ast = g.parse(code)
     asm_code = asm_prg(ast)
     print(asm_code)
-    #optimized_asm_code = optimize_mov_sequences(asm_code)
-    #print(optimized_asm_code)
+    #optimized_asm = optimize_asm(asm_code)
+    #print(optimized_asm)
     # ast = g.parse("8-4")
     # ast = g.parse(code)  # Deuxième ligne : mov depuis [x]
     # print(asm_exp(ast))

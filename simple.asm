@@ -3,10 +3,10 @@
 extern printf, atoi
 section .data
 argv: dq 0
-z: dq 0
 y: dq 0
-x: dq 0
 c: dq 0
+x: dq 0
+z: dq 0
 
 fmt: db "%d", 10,0
 
@@ -49,51 +49,6 @@ add rax, [x]
 mov r8, [z]
 add rax, r8
 mov [z], rax
-mov rax, [x]
-add rax, [y]
-mov r8, [z]
-add r8, [z]
-mov r9, [x]
-add r9, [y]
-add r8, r9
-mov r9, [z]
-add r9, [z]
-mov r10, [x]
-add r10, [y]
-add r9, r10
-mov r10, [z]
-add r10, [z]
-mov r11, [x]
-add r11, [y]
-add r10, r11
-mov r11, [z]
-add r11, [z]
-mov r12, [x]
-add r12, [y]
-add r11, r12
-mov r12, [z]
-add r12, [z]
-mov r13, [x]
-add r13, [y]
-add r12, r13
-mov r13, [z]
-add r13, [z]
-mov r14, [x]
-add r14, [y]
-add r13, r14
-mov r14, [z]
-add r14, [z]
-mov r15, [x]
-add r15, [y]
-add r14, r15
-add r13, r14
-add r12, r13
-add r11, r12
-add r10, r11
-add r9, r10
-add r8, r9
-add rax, r8
-mov [y], rax
 jmp loop5
 end5: nop
 jmp end4
@@ -182,44 +137,44 @@ mov rbx, [z]
 add r15, rbx
 mov rbx, [x]
 add rbx, [x]
-push rcx
-mov rcx, rbx
+push rbx
 mov rbx, [x]
-add rbx, rcx
-pop rcx
-push rcx
 mov rcx, rbx
+pop rbx
+add rbx, rcx
+push rbx
 mov rbx, [y]
 add rbx, [y]
-add rbx, rcx
-pop rcx
-push rcx
 mov rcx, rbx
+pop rbx
+add rbx, rcx
+push rbx
 mov rbx, [z]
-add rbx, rcx
-pop rcx
-push rcx
 mov rcx, rbx
+pop rbx
+add rbx, rcx
+push rbx
 mov rbx, [x]
 add rbx, [x]
-push rcx
-mov rcx, rbx
+push rbx
 mov rbx, [x]
-add rbx, rcx
-pop rcx
-push rcx
 mov rcx, rbx
+pop rbx
+add rbx, rcx
+push rbx
 mov rbx, [y]
 add rbx, [y]
-add rbx, rcx
-pop rcx
-push rcx
 mov rcx, rbx
+pop rbx
+add rbx, rcx
+push rbx
 mov rbx, [z]
+mov rcx, rbx
+pop rbx
 add rbx, rcx
-pop rcx
+mov rcx, rbx
+pop rbx
 add rbx, rcx
-pop rcx
 add r15, rbx
 add r14, r15
 add r13, r14
