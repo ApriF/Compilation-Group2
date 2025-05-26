@@ -19,9 +19,9 @@ expression: IDENTIFIER                                                   -> var
     | "*" expression                                                     -> deref
     | "malloc(" expression ")"                                           -> allocation
     |DOUBLE                                                              -> double
-commande: commande (commande)*                                                    -> sequence
+commande: commande (commande)*                                            -> sequence
     | "while" "(" expression ")" "{" commande "}"                         -> while
-    | identifier_bis "=" ("("TYPE_PRIM")")* expression ";"                                          -> affectation
+    | identifier_bis "=" ("("TYPE_PRIM")")* expression ";"                -> affectation
     | type IDENTIFIER ";"                                                -> declaration
     | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")?  -> if
     | "printf" "(" expression ")" ";"                                       -> print
@@ -34,7 +34,7 @@ programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";"
 
 %import common.WS
 %ignore WS
-""", start='commande')
+""", start='expression')
 
 tabu="    "
 
@@ -67,17 +67,20 @@ def pp_type(t):
 def pp_commande(c, indent=0):
     if c.data == "declaration":
         return f"{tabu*indent}{pp_type(c.children[0])} {c.children[1].value};"
+    
     if c.data == "affectation":
         if len(c.children) == 3:
             return f"{tabu*indent}{pp_expression(c.children[0])} = ({c.children[1].value}) {pp_expression(c.children[2])};"
         else:
             return f"{tabu*indent}{pp_expression(c.children[0])} = {pp_expression(c.children[1])};"
+        
     elif c.data == "print":
         return f"{tabu*indent}printf({pp_expression(c.children[0])});"
     elif c.data == "skip":
         return f"{tabu*indent}skip;"
     elif c.data == "while":
         return f"{tabu*indent}while ({pp_expression(c.children[0])}) {{ \n{pp_commande(c.children[1],indent+1)} \n{tabu*indent}}}"
+    
     elif c.data == "sequence":
         if len(c.children) == 1:
             return f"{pp_commande(c.children[0],indent)}"
@@ -106,20 +109,81 @@ def pp_programme(p):
         return ret
 
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
+opFloat = {"+": "addsd", "-": "subsd", "*": "mulsd", "/": "divsd", ">": "ucomisd", "<": "ucomisd", "==": "ucomisd"}
 def asm_exp(e):
     if e.data == "var":
-        return f"mov rax, [{e.children[0].value}]"
+        if liste_vars_global[e.children[0].value].children[0] == "int":
+            return f"mov rax, [{e.children[0].value}]"
+        if liste_vars_global[e.children[0].value].children[0] == "double":
+            return f"movsd xmm0, [{e.children[0].value}]"
     if e.data == "number":
         return f"mov rax, {e.children[0].value}"
+    if e.data == "double":
+        label = f"float_{str(e.children[0].value).replace('.', '_').replace('-', 'm')}"
+        return f"movsd xmm0, QWORD PTR [{label}]"
+    if e.data == "paren":
+        return asm_exp(e.children[0])
+    
     if e.data == "operation":
-        return f"""{asm_exp(e.children[0])}
+        number_of_double = is_double_expression(e)
+        if number_of_double == 0:
+            return f"""{asm_exp(e.children[0])}
 push rax
 {asm_exp(e.children[2])}
 mov rbx, rax
 pop rax
-{op2asm[e.children[1].value]} rax, rbx"""
-    if e.data == "paren":
-        return asm_exp(e.children[0])
+{op2asm[e.children[1].value]} rax, rbx
+"""
+        
+        if number_of_double == 1:
+            if is_double_expression(e.children[0]):
+                return f"""pxor xmm0 xmm0
+{asm_exp(e.children[2])}
+cvtsi2sd xmm0, rax
+movsd xmm1, xmm0
+{asm_exp(e.children[0])}
+{opFloat[e.children[1].value]} xmm0, xmm1
+"""
+            else:
+                return f"""
+{asm_exp(e.children[2])}
+movsd xmm1, xmm0
+pxor xmm0 xmm0
+{asm_exp(e.children[0])}
+cvtsi2sd xmm0, rax
+{opFloat[e.children[1].value]} xmm0, xmm1
+"""
+            
+        if number_of_double == 2:
+            return f"""{asm_exp(e.children[0])}
+movsd xmm1, xmm0
+{asm_exp(e.children[2])}
+{opFloat[e.children[1].value]} xmm0, xmm1
+"""
+    
+    
+
+def is_double_expression(e):
+    if e.data == "double":
+        return 1
+    if e.data == "var":
+        if liste_vars_global[e.value].children[0] == "double":
+            return 1
+        else:
+            return 0
+    if e.data == "number":
+        return 0
+    if e.data == "operation":
+        number_of_double = 0
+        number_of_double = is_double_expression(e.children[0]) + is_double_expression(e.children[2])
+    return number_of_double
+
+def declaration_double():
+    out = ""
+    for variable in liste_vars_global:
+        if liste_vars_global[variable].children[0] == "double":
+            label = str(liste_vars_global[variable]).replace('.', '_').replace('-', 'm')
+            out += f"{label}: dq {liste_vars_global[variable]}\n" 
 
 compteur = 0
 def asm_cmd(c):
@@ -128,21 +192,30 @@ def asm_cmd(c):
     compteur_local = compteur
 
     if c.data == "affectation":
-        return f"""{asm_exp(c.children[1])}
-mov [{c.children[0].value}], rax"""
+        if liste_vars_global[c.children[0].value].children[0] == "int":
+            return f"""{asm_exp(c.children[1])}
+                    mov [{c.children[0].value}], rax
+                    """
+        if liste_vars_global[c.children[0].value].children[0] == "double":
+            return f"""{asm_exp(c.children[1])}
+                    movsd [{c.children[0].value}], xmm0
+                    """
     if c.data == "skip":
         return "nop"
     if c.data == "sequence":
         if len(c.children) == 1:
             return asm_cmd(c.children[0])
-        return f"""{asm_cmd(c.children[0])}
-{asm_cmd(c.children[1])}"""
+        return f"""
+                {asm_cmd(c.children[0])}
+                {asm_cmd(c.children[1])}
+                """
     if c.data == "print":
         return f"""{asm_exp(c.children[0])}
 mov rdi, fmt
 mov rsi, rax
 xor rax, rax
-call printf"""
+call printf
+"""
     if c.data == "if":
         return f"""{asm_exp(c.children[0])}
 cmp rax, 0
@@ -150,14 +223,16 @@ jz at{compteur_local}
 {asm_cmd(c.children[2])}
 jmp end{compteur_local}
 at{compteur_local}: {asm_cmd(c.children[1])}
-end{compteur_local}: nop"""
+end{compteur_local}: nop
+"""
     if c.data == "while":
         return f"""loop{compteur_local}: {asm_exp(c.children[0])}
 cmp rax, 0
 jz end{compteur_local}
 {asm_cmd(c.children[1])}
 jmp loop{compteur_local}
-end{compteur_local}: nop"""
+end{compteur_local}: nop
+"""
 
 def get_vars_expression(e):
     if e.data == "var":
@@ -225,6 +300,9 @@ argv: dq 0
 {declaration_variables(get_vars_commande(p.children[1]))}
 fmt: db "%d", 10,0
 
+section .rdata
+{declaration_double()}
+
 global main
 section .text
 main:
@@ -248,8 +326,8 @@ if __name__ == "__main__":
     #print(pp_programme(ast))
 
     # ast = g.parse("8-4")
-    ast = g.parse("z =(int) i + k;")
-    print(pp_commande(ast))
+    ast = g.parse("x + 3")
+    print(asm_exp(ast))
 # print(ast.children)
 # print(ast.children[0].type)
 # print(ast.children[0].value)
