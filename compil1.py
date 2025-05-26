@@ -1,4 +1,5 @@
 from lark import Lark
+from lark import Tree, Token
 print("\n")
 
 g=Lark("""
@@ -19,9 +20,9 @@ expression: IDENTIFIER                                                   -> var
     | "*" expression                                                     -> deref
     | "malloc(" expression ")"                                           -> allocation
     |DOUBLE                                                              -> double
-commande: commande (commande)*                                                    -> sequence
-    | "while" "(" expression ")" "{" commande "}"                         -> while
-    | identifier_bis "=" expression ";"                                          -> affectation
+commande: commande (commande)*                                           -> sequence
+    | "while" "(" expression ")" "{" commande "}"                        -> while
+    | identifier_bis "=" expression ";"                                  -> affectation
     | type IDENTIFIER ";"                                                -> declaration
     | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")?  -> if
     | "printf" "(" expression ")" ";"                                       -> print
@@ -35,6 +36,8 @@ programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";"
 %import common.WS
 %ignore WS
 """, start='programme')
+
+
 
 tabu="    "
 
@@ -237,12 +240,120 @@ call printf
 pop rbp
 ret"""
 
+def verif_type(ast):
+
+    # enregistrement des types des arguments de la fonction main
+    list_vars = ast.children[0]
+    for i in range(0,len(list_vars.children),2):
+        liste_vars_global[list_vars.children[i+1].value] = list_vars.children[i]
+
+    verif_type_cmd(ast.children[1])
+
+    # enregistrement des types des variables locales
+    c = ast.children[1]
+
+def verif_type_cmd(c):
+    if c.data == "declaration":
+        if c.children[1].value in liste_vars_global:
+            raise ValueError(f"Variable {c.children[1].value} already declared")
+        liste_vars_global[c.children[1].value] = c.children[0]
+
+    elif c.data == "affectation":
+        var = c.children[0]
+        while(var.data == 'deref' or var.data == "esperlu"):
+            var = var.children[0]
+        if var.children[0] not in liste_vars_global:
+            raise ValueError(f"Variable {var.children[0]} not declared")
+        var_type = verif_type_exp(c.children[0]) 
+        expr_type = verif_type_exp(c.children[1])
+        if var_type != expr_type and expr_type != "malloc":
+            raise ValueError(f"Type mismatch: {var_type} != {expr_type}")
+
+
+    elif c.data == "if":
+        expr_type = verif_type_exp(c.children[0])
+        if expr_type != "int":
+            raise ValueError(f"Type mismatch: {expr_type} != int")
+        verif_type_cmd(c.children[1])
+        if len(c.children) > 2:
+            verif_type_cmd(c.children[2])
+
+    elif c.data == "while":
+        expr_type = verif_type_exp(c.children[0])
+        if expr_type != "int":
+            raise ValueError(f"Type mismatch: {expr_type} != int")
+        verif_type_cmd(c.children[1])
+
+    elif c.data == "sequence":
+        if len(c.children) == 1:
+            verif_type_cmd(c.children[0])
+        else:
+            verif_type_cmd(c.children[0])
+            verif_type_cmd(c.children[1])
+    
+def verif_type_exp(e):
+    if e in liste_vars_global:
+        return liste_vars_global[e]
+    if e.data == "var":
+        if e.children[0].value not in liste_vars_global:
+            raise ValueError(f"Variable {e.children[0].value} not declared")
+        return liste_vars_global[e.children[0].value]
+    elif e.data == "number":
+        return Tree('type_prim', [Token('TYPE_PRIM', 'int')])
+    elif e.data == "double":
+        return Tree('type_prim', [Token('TYPE_PRIM', 'double')])
+
+    elif e.data == "operation":
+        left_type = verif_type_exp(e.children[0])
+        right_type = verif_type_exp(e.children[2])
+        if left_type != right_type:
+            type_int=Tree('type_prim', [Token('TYPE_PRIM', 'int')])
+            if not ((left_type == type_int and right_type.data == "pointeur") or (right_type == type_int and left_type.data == "pointeur")):
+                raise ValueError(f"Type mismatch: {left_type} != {right_type}")
+        return left_type
+
+    elif e.data == "paren":
+        return verif_type_exp(e.children[0])
+    
+    elif e.data == "esperlu":
+        type = verif_type_exp(e.children[0])
+        if type.data == "number":
+            raise ValueError(f"Cannot take address of a number")
+        if type.data == "double":
+            raise ValueError(f"Cannot take address of a double")
+        else:
+            return Tree('pointeur', [type])
+    
+    elif e.data == "deref":
+        type = verif_type_exp(e.children[0])
+        if type.data == "pointeur":
+            return type.children[0]
+        else:
+            raise ValueError(f"Cannot dereference a {type}")
+    elif e.data == "allocation":
+        type = verif_type_exp(e.children[0])
+        if type.children[0] == "int":
+            return "malloc"
+        else:
+            raise ValueError(f"malloc function can't take argument of type {type}")
+    else:
+        raise ValueError(f"Unknown expression type: {e.data}")
+
+
 
 if __name__ == "__main__":
+    liste_vars_global = {}
     with open("simple.c", "r") as f:
         code = f.read()
     ast = g.parse(code)
-    print(pp_programme(ast))
+    verif_type(ast)
+    
+    for i in liste_vars_global:
+        print(f"{i} : {liste_vars_global[i]}")
+    
+
+
+    # print(pp_programme(ast))
 
     # ast = g.parse("8-4")
     # ast = g.parse(code)

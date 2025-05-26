@@ -1,4 +1,10 @@
-main(int** a,double b) {
+main(int** a,int b) {
+    int* n;
+    *n = 8;
+    int m;
+    m = *n +1;
+
+
     int c;
     c = **a+b;
     int* p;
@@ -6,7 +12,7 @@ main(int** a,double b) {
     i=4;
     p = &i;
     i = *p + 4;
-    int* q;
+    int** q;
     q = &p;
     *p = i;
     **q = i;
@@ -15,5 +21,8 @@ main(int** a,double b) {
     double x;
     x = 3.14;
     x = 3.e14;
+
+    double* y;
+    *y = x * 7.;
     return(c);
 }
