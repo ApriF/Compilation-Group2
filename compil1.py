@@ -58,11 +58,7 @@ def pp_programme(p):
 
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
 def asm_exp(e, available_registers=None):
-    """
-    Génère le code assembleur pour une expression en utilisant dynamiquement les registres de r8 à r15 et rbx et rcx.
-    Réutilise le même registre pour une suite d'opérations dans une même parenthèse.
-    Gère le cas spécial où les deux opérandes sont identiques (e.g., z + z).
-    """
+    
     if available_registers is None:
         available_registers = ["rax", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx"]
 
@@ -231,22 +227,7 @@ pop rbp
 ret"""
 
 def optimize_asm(asm_code):
-    lines = asm_code.splitlines()
-    opti_lines = []
-    i = 0
-    while i < len(lines):
-        if (i + 1 < len(lines)
-            and lines[i].startswith("mov [")and "rax" in lines[i]
-            and lines[i + 1].startswith("mov rax, [")
-        ):
-            var1 = lines[i].split("[")[1].split("]")[0]
-            var2 = lines[i + 1].split("[")[1].split("]")[0]
-            if var1 == var2:
-                i += 2
-                continue
-        opti_lines.append(lines[i])
-        i += 1
-    return "\n".join(opti_lines)
+    return 0
 
 if __name__ == "__main__":
     with open("simple.c", "r") as f:
