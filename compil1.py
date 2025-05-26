@@ -58,13 +58,9 @@ def pp_programme(p):
 
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
 def asm_exp(e, available_registers=None):
-    """
-    Génère le code assembleur pour une expression en utilisant dynamiquement les registres de r8 à r15 et rbx et rcx.
-    Réutilise le même registre pour une suite d'opérations dans une même parenthèse.
-    Gère le cas spécial où les deux opérandes sont identiques (e.g., z + z).
-    """
+    
     if available_registers is None:
-        available_registers = ["rax", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx","rcx"]
+        available_registers = ["rax", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx"]
 
     if e.data == "var":
         reg = available_registers[0]
@@ -84,16 +80,18 @@ def asm_exp(e, available_registers=None):
             return f"""mov {reg}, [{var_name1}]
 {operation} {reg}, [{var_name2}]""", reg
 
-        # Cas où moins de 2 regs dispos : on utilise push/pop pour rien perdre
+        # Cas où 1 seul reg dispo: on utilise rcx avec du push/pop sur rbx (le dernier dispo)
         if len(available_registers) < 2:
-            asm_left, left_reg = asm_exp(e.children[0], available_registers)
-            asm_right, right_reg = asm_exp(e.children[2], available_registers)
-            operation = op2asm[e.children[1].value]
-            return f"""push {left_reg}
+            assert(available_registers== ["rbx"])
+            asm_left,_ = asm_exp(e.children[0], available_registers)
+            asm_right, _ = asm_exp(e.children[2], available_registers)
+            return f"""{asm_left}
+push rbx
 {asm_right}
-pop {left_reg}
-{operation} {left_reg}, {right_reg}""", left_reg
-
+mov rcx, rbx
+pop rbx
+{op2asm[e.children[1].value]} rbx, rcx""", available_registers
+        
         # Cas où on a au moins 2 regs dispos : on les utilise
         left_reg = available_registers[0]
         right_reg = available_registers[1]
@@ -228,23 +226,8 @@ call printf
 pop rbp
 ret"""
 
-def optimize_mov_sequences(asm_code):
-    lines = asm_code.splitlines()
-    opti_lines = []
-    i = 0
-    while i < len(lines):
-        if (i + 1 < len(lines)
-            and lines[i].startswith("mov [")and "rax" in lines[i]
-            and lines[i + 1].startswith("mov rax, [")
-        ):
-            var1 = lines[i].split("[")[1].split("]")[0]
-            var2 = lines[i + 1].split("[")[1].split("]")[0]
-            if var1 == var2:
-                i += 2
-                continue
-        opti_lines.append(lines[i])
-        i += 1
-    return "\n".join(opti_lines)
+def optimize_asm(asm_code):
+    return 0
 
 if __name__ == "__main__":
     with open("simple.c", "r") as f:
@@ -252,8 +235,8 @@ if __name__ == "__main__":
     ast = g.parse(code)
     asm_code = asm_prg(ast)
     print(asm_code)
-    #optimized_asm_code = optimize_mov_sequences(asm_code)
-    #print(optimized_asm_code)
+    #optimized_asm = optimize_asm(asm_code)
+    #print(optimized_asm)
     # ast = g.parse("8-4")
     # ast = g.parse(code)  # Deuxième ligne : mov depuis [x]
     # print(asm_exp(ast))
