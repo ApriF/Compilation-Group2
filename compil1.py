@@ -127,9 +127,11 @@ def asm_cmd(c):
     compteur += 1
     compteur_local = compteur
 
+    if c.data == "declaration":
+        return ""
     if c.data == "affectation":
         return f"""{asm_exp(c.children[1])}
-mov [{c.children[0].value}], rax"""
+mov [{c.children[0].children[0]}], rax"""
     if c.data == "skip":
         return "nop"
     if c.data == "sequence":
@@ -146,13 +148,15 @@ call printf"""
     if c.data == "if":
         return f"""{asm_exp(c.children[0])}
 cmp rax, 0
-jz at{compteur_local}
-{asm_cmd(c.children[2])}
+jnz at{compteur_local}
+{"nop" if len(c.children)<3 else asm_exp(c.children[2])}
 jmp end{compteur_local}
-at{compteur_local}: {asm_cmd(c.children[1])}
+at{compteur_local}: nop
+{asm_cmd(c.children[1])}
 end{compteur_local}: nop"""
     if c.data == "while":
-        return f"""loop{compteur_local}: {asm_exp(c.children[0])}
+        return f"""loop{compteur_local}: nop
+{asm_exp(c.children[0])}
 cmp rax, 0
 jz end{compteur_local}
 {asm_cmd(c.children[1])}
@@ -192,9 +196,10 @@ def get_vars_commande(c):
     elif c.data == "while":
         return get_vars_expression(c.children[0]).union(get_vars_commande(c.children[1]))
 
-def declaration_variables(vars=set()):
+def declaration_variables():
+    global liste_vars_global
     declarations = ""
-    for i,var in enumerate(vars):
+    for var in liste_vars_global:
         declarations += f"{var}: dq 0\n"
     return declarations
 
@@ -212,8 +217,8 @@ def initialisation_variables(liste_vars):
         return ""
     else:
         code = ""
-        for i in range(n):
-            code += initialisation_variable(liste_vars.children[i].value, compteur+1+i)
+        for i in range(0,len(liste_vars.children),2):
+            code += initialisation_variable(liste_vars.children[i+1].value, compteur+1+i//2)
         return code
 
 
@@ -222,7 +227,7 @@ def asm_prg(p):
         return f"""extern printf, atoi
 section .data
 argv: dq 0
-{declaration_variables(get_vars_commande(p.children[1]))}
+{declaration_variables()}
 fmt: db "%d", 10,0
 
 global main
@@ -231,6 +236,7 @@ main:
 push rbp
 mov [argv], rsi
 {initialisation_variables(p.children[0])}
+
 {asm_cmd(p.children[1])}
 {asm_exp(p.children[2])}
 mov rdi, fmt
@@ -248,9 +254,8 @@ def verif_type(ast):
         liste_vars_global[list_vars.children[i+1].value] = list_vars.children[i]
 
     verif_type_cmd(ast.children[1])
+    verif_type_exp(ast.children[2])
 
-    # enregistrement des types des variables locales
-    c = ast.children[1]
 
 def verif_type_cmd(c):
     if c.data == "declaration":
@@ -272,16 +277,16 @@ def verif_type_cmd(c):
 
     elif c.data == "if":
         expr_type = verif_type_exp(c.children[0])
-        if expr_type != "int":
-            raise ValueError(f"Type mismatch: {expr_type} != int")
+        if expr_type.children[0] != "int":
+            raise ValueError(f"Type mismatch: {expr_type} != Tree('type_prim', [Token('TYPE_PRIM', 'int')])")
         verif_type_cmd(c.children[1])
         if len(c.children) > 2:
             verif_type_cmd(c.children[2])
 
     elif c.data == "while":
         expr_type = verif_type_exp(c.children[0])
-        if expr_type != "int":
-            raise ValueError(f"Type mismatch: {expr_type} != int")
+        if expr_type.children[0] != "int":
+            raise ValueError(f"Type mismatch: {expr_type} != Tree('type_prim', [Token('TYPE_PRIM', 'int')])")
         verif_type_cmd(c.children[1])
 
     elif c.data == "sequence":
@@ -348,15 +353,15 @@ if __name__ == "__main__":
     ast = g.parse(code)
     verif_type(ast)
     
-    for i in liste_vars_global:
-        print(f"{i} : {liste_vars_global[i]}")
+    # for i in liste_vars_global:
+    #     print(f"{i} : {liste_vars_global[i]}")
     
 
+    asm = asm_prg(ast)
+    print(asm)
 
     # print(pp_programme(ast))
 
-    # ast = g.parse("8-4")
-    # ast = g.parse(code)
     # print(asm_exp(ast))
 # print(ast.children)
 # print(ast.children[0].type)
