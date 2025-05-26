@@ -278,6 +278,12 @@ pop rbp
 ret"""
 
 
+
+
+
+
+
+'''
 if __name__ == "__main__":
     with open("simple.c", "r") as f:
         code = f.read()
@@ -291,3 +297,27 @@ if __name__ == "__main__":
 # print(ast.children)
 # print(ast.children[0].type)
 # print(ast.children[0].value)
+'''
+
+if __name__ == "__main__":
+    code = """
+    main(int i) {
+        int j;
+        int* p;
+        int** q;
+        p = &i;
+        j = *p + 4;
+        q = &p;
+        *p = i;
+        **q = i;
+        p = malloc(8);
+        p = p + i;
+        printf(j);
+        return(j);
+    }
+    """
+    ast = g.parse(code)
+    print("===== Code Pretty-Printed =====")
+    print(pp_programme(ast))
+    print("\n===== Code Assembleur =====")
+    print(asm_prg(ast))
