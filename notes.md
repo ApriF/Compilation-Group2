@@ -118,9 +118,6 @@ optimisations :
 
     x+x     -> faire en sorte qu'il n'y ait qu'un seul mov rax, [x]
 
-    x=3              | supprimer le     mov [x], rax
-    x=x+1            |                  mov rax, [x]
-
 
 ## Debugger
 Instructions pour gdb :

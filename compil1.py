@@ -5,9 +5,13 @@ print("\n")
 g=Lark("""
 IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9]*/
 NUMBER: /[1-9][0-9]*/ | "0"
-OPERATOR: /[+\-*\/><]/ | "==" | "!="
+OPERATOR: /[+\-*\/><]/ | "=="
+TYPE_PRIM : "int" | "double"
+type: TYPE_PRIM   ->  type_prim
+    | type"*"     ->  pointeur 
+DOUBLE : /[0-9][0-9]*[.0-9][0-9]*/ | /[0-9][0-9]*[.][0-9]*[e][\-]*[0-9][0-9]*/
 liste_var:                                                               -> vide
-    | IDENTIFIER ("," IDENTIFIER)*                                       -> vars
+    | type " " IDENTIFIER ("," type " " IDENTIFIER)*                     -> vars
 expression: IDENTIFIER                                                   -> var
     | expression OPERATOR expression                                     -> operation
     | "(" expression ")"                                                 -> paren
@@ -23,6 +27,9 @@ commande: commande (commande)*                                           -> sequ
     | "if" "(" expression ")" "{" commande "}"  ("else" "{" commande "}")?  -> if
     | "printf" "(" expression ")" ";"                                       -> print
     | "skip" ";"                                                            -> skip
+identifier_bis: IDENTIFIER                                               -> var
+    | "*" identifier_bis                                                 -> deref
+
 
 programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";" "}"                        -> main
 
@@ -35,18 +42,36 @@ programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";"
 tabu="    "
 
 def pp_expression(e):
-    if e.data in ("var","number"):
+    if e.data in ("number", "double"):
+        return f"{e.children[0].value}"
+    elif e.data == "var":
         return f"{e.children[0].value}"
     elif e.data == "operation":
         return f"{pp_expression(e.children[0])} {e.children[1].value} {pp_expression(e.children[2])}"
     elif e.data == "paren":
         return f"({pp_expression(e.children[0])})"
+    elif e.data == "esperlu":
+        return f"&{e.children[0].value}"
+    elif e.data == "deref":
+        return f"*{pp_expression(e.children[0])}"
+    elif e.data == "allocation":
+        return f"malloc({pp_expression(e.children[0])})"        
     else:
         raise ValueError(f"Unknown expression type: {e.data}")
 
+def pp_type(t):
+    if t.data == "type_prim":
+        return f"{t.children[0].value}"
+    elif t.data == "pointeur":
+        return f"{pp_type(t.children[0])}*"
+    else:
+        raise ValueError(f"Unknown type: {t.data}")
+
 def pp_commande(c, indent=0):
+    if c.data == "declaration":
+        return f"{tabu*indent}{pp_type(c.children[0])} {c.children[1].value};"
     if c.data == "affectation":
-        return f"{tabu*indent}{c.children[0].value} = {pp_expression(c.children[1])};"
+        return f"{tabu*indent}{pp_expression(c.children[0])} = {pp_expression(c.children[1])};"
     elif c.data == "print":
         return f"{tabu*indent}printf({pp_expression(c.children[0])});"
     elif c.data == "skip":
@@ -62,65 +87,49 @@ def pp_commande(c, indent=0):
     
 def pp_programme(p):
     if p.data=="main":
-        return f"main({','.join([v.value for v in p.children[0].children])}) {{\n{pp_commande(p.children[1],1)} \n{tabu}return ({pp_expression(p.children[2])});\n}}"
+        ret = ""
+        ret += "main("
+        for i in range(0,len(p.children[0].children),2):
+            if p.children[0].children[i].data == "type_prim":
+                ret += f"{p.children[0].children[i].children[0].value} {p.children[0].children[i+1].value}, "
+            if p.children[0].children[i].data == "pointeur":
+                depth = 0
+                child = p.children[0].children[i]
+                while child.data == "pointeur":
+                    depth += 1
+                    child = child.children[0]
+                ret += f"{child.children[0].value}{depth*"*"} {p.children[0].children[i+1].value}, "
+        ret = ret[:-2] + ") {\n"
+        ret += f"{pp_commande(p.children[1],1)} \n"
+        ret += f"{tabu}return ({pp_expression(p.children[2])});\n"
+        ret += "}"
+        return ret
 
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
-def asm_exp(e, available_registers=None):
-    
-    if available_registers is None:
-        available_registers = ["rax", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx"]
-
+def asm_exp(e):
     if e.data == "var":
-        reg = available_registers[0]
-        return f"mov {reg}, [{e.children[0].value}]", reg
+        return f"mov rax, [{e.children[0].value}]"
     if e.data == "number":
-        reg = available_registers[0]
-        return f"mov {reg}, {e.children[0].value}", reg
-    if e.data == "paren":
-        return asm_exp(e.children[0], available_registers)
+        return f"mov rax, {e.children[0].value}"
     if e.data == "operation":
-        # Optimisation de type x+x
-        if e.children[0].data == "var" and e.children[2].data == "var":
-            reg = available_registers[0]
-            var_name1 = e.children[0].children[0].value
-            var_name2 = e.children[2].children[0].value
-            operation = op2asm[e.children[1].value]
-            return f"""mov {reg}, [{var_name1}]
-{operation} {reg}, [{var_name2}]""", reg
-
-        # Cas où 1 seul reg dispo: on utilise rcx avec du push/pop sur rbx (le dernier dispo)
-        if len(available_registers) < 2:
-            assert(available_registers== ["rbx"])
-            asm_left,_ = asm_exp(e.children[0], available_registers)
-            asm_right, _ = asm_exp(e.children[2], available_registers)
-            return f"""{asm_left}
-push rbx
-{asm_right}
-mov rcx, rbx
-pop rbx
-{op2asm[e.children[1].value]} rbx, rcx""", available_registers
-        
-        # Cas où on a au moins 2 regs dispos : on les utilise
-        left_reg = available_registers[0]
-        right_reg = available_registers[1]
-        asm_left, _ = asm_exp(e.children[0], available_registers)
-        asm_right, _ = asm_exp(e.children[2], available_registers[1:])
-        operation = op2asm[e.children[1].value]
-        return f"""{asm_left}
-{asm_right}
-{operation} {left_reg}, {right_reg}""", left_reg
+        return f"""{asm_exp(e.children[0])}
+push rax
+{asm_exp(e.children[2])}
+mov rbx, rax
+pop rax
+{op2asm[e.children[1].value]} rax, rbx"""
+    if e.data == "paren":
+        return asm_exp(e.children[0])
 
 compteur = 0
-
 def asm_cmd(c):
     global compteur
     compteur += 1
     compteur_local = compteur
 
     if c.data == "affectation":
-        asm_code, result_reg = asm_exp(c.children[1])
-        return f"""{asm_code}
-mov [{c.children[0].value}], {result_reg}"""
+        return f"""{asm_exp(c.children[1])}
+mov [{c.children[0].value}], rax"""
     if c.data == "skip":
         return "nop"
     if c.data == "sequence":
@@ -129,25 +138,22 @@ mov [{c.children[0].value}], {result_reg}"""
         return f"""{asm_cmd(c.children[0])}
 {asm_cmd(c.children[1])}"""
     if c.data == "print":
-        asm_code, result_reg = asm_exp(c.children[0])
-        return f"""{asm_code}
+        return f"""{asm_exp(c.children[0])}
 mov rdi, fmt
-mov rsi, {result_reg}
+mov rsi, rax
 xor rax, rax
 call printf"""
     if c.data == "if":
-        asm_code, result_reg = asm_exp(c.children[0])
-        return f"""{asm_code}
-cmp {result_reg}, 0
+        return f"""{asm_exp(c.children[0])}
+cmp rax, 0
 jz at{compteur_local}
-{asm_cmd(c.children[1])}
+{asm_cmd(c.children[2])}
 jmp end{compteur_local}
-at{compteur_local}: {asm_cmd(c.children[2]) if len(c.children) > 2 else "nop"}
+at{compteur_local}: {asm_cmd(c.children[1])}
 end{compteur_local}: nop"""
     if c.data == "while":
-        asm_code, result_reg = asm_exp(c.children[0])
-        return f"""loop{compteur_local}: {asm_code}
-cmp {result_reg}, 0
+        return f"""loop{compteur_local}: {asm_exp(c.children[0])}
+cmp rax, 0
 jz end{compteur_local}
 {asm_cmd(c.children[1])}
 jmp loop{compteur_local}
@@ -226,7 +232,7 @@ push rbp
 mov [argv], rsi
 {initialisation_variables(p.children[0])}
 {asm_cmd(p.children[1])}
-{asm_exp(p.children[2])[0]}
+{asm_exp(p.children[2])}
 mov rdi, fmt
 mov rsi, rax
 xor rax, rax
@@ -333,8 +339,6 @@ def verif_type_exp(e):
     else:
         raise ValueError(f"Unknown expression type: {e.data}")
 
-def optimize_asm(asm_code):
-    return 0
 
 
 if __name__ == "__main__":
@@ -342,7 +346,6 @@ if __name__ == "__main__":
     with open("simple.c", "r") as f:
         code = f.read()
     ast = g.parse(code)
-    asm_code = asm_prg(ast)
     verif_type(ast)
     
     for i in liste_vars_global:
@@ -350,11 +353,10 @@ if __name__ == "__main__":
     
 
 
-    # print(asm_code)
-    #optimized_asm = optimize_asm(asm_code)
-    #print(optimized_asm)
+    # print(pp_programme(ast))
+
     # ast = g.parse("8-4")
-    # ast = g.parse(code)  # Deuxième ligne : mov depuis [x]
+    # ast = g.parse(code)
     # print(asm_exp(ast))
 # print(ast.children)
 # print(ast.children[0].type)
