@@ -1,4 +1,5 @@
 from lark import Lark
+double_literals = set()
 print("\n")
 
 g=Lark("""
@@ -116,11 +117,16 @@ def asm_exp(e):
             return f"mov rax, [{e.children[0].value}]"
         if liste_vars_global[e.children[0].value].children[0] == "double":
             return f"movsd xmm0, [{e.children[0].value}]"
+        
     if e.data == "number":
         return f"mov rax, {e.children[0].value}"
+    
     if e.data == "double":
+        val = str(e.children[0].value)
         label = f"float_{str(e.children[0].value).replace('.', '_').replace('-', 'm')}"
+        double_literals.add((label, val))
         return f"movsd xmm0, QWORD PTR [{label}]"
+    
     if e.data == "paren":
         return asm_exp(e.children[0])
     
@@ -160,9 +166,8 @@ movsd xmm1, xmm0
 {asm_exp(e.children[2])}
 {opFloat[e.children[1].value]} xmm0, xmm1
 """
-    
-    
 
+#retourne 0, 1 ou 2 en fonction du nombre de double dans l'opération 
 def is_double_expression(e):
     if e.data == "double":
         return 1
@@ -178,12 +183,12 @@ def is_double_expression(e):
         number_of_double = is_double_expression(e.children[0]) + is_double_expression(e.children[2])
     return number_of_double
 
-def declaration_double():
+#Permet de déclarer les doubles dans .rdata afin de placer la valeur du double dans les registres xmm0, xmm1...
+def declaration_double_statique():
     out = ""
-    for variable in liste_vars_global:
-        if liste_vars_global[variable].children[0] == "double":
-            label = str(liste_vars_global[variable]).replace('.', '_').replace('-', 'm')
-            out += f"{label}: dq {liste_vars_global[variable]}\n" 
+    for label, val in double_literals:
+        out += f"{label}: dq {val}\n"
+    return out
 
 compteur = 0
 def asm_cmd(c):
@@ -301,7 +306,7 @@ argv: dq 0
 fmt: db "%d", 10,0
 
 section .rdata
-{declaration_double()}
+{declaration_double_statique()}
 
 global main
 section .text
