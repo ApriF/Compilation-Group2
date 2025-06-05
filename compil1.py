@@ -111,15 +111,25 @@ def asm_exp(e, available_registers=None):
     
     if available_registers is None:
         available_registers = ["r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx"]
-
     if e.data == "var":
         reg = available_registers[0]
         return f"mov {reg}, [{e.children[0].value}]", reg
-    if e.data == "number":
+    if e.data == "number" or e.data == "double": # peut ête à modifier pour gérer les doubles
         reg = available_registers[0]
         return f"mov {reg}, {e.children[0].value}", reg
     if e.data == "paren":
         return asm_exp(e.children[0], available_registers)
+    
+    if e.data == "allocation":
+        asm_code, result_reg = asm_exp(e.children[0])
+        return "nop", result_reg # à modifier pour gérer les mallocs
+
+    if e.data == "deref": # à modifier pour gérer les pointeurs
+        return asm_exp(e.children[0], available_registers)
+    if e.data == "esperlu": #  à modifier pour gérer les pointeurs
+        newe = Tree('var', [Token('IDENTIFIER', e.children[0].value)])
+        return asm_exp(newe, available_registers)
+
     if e.data == "operation":
         # Optimisation de type x+x
         if e.children[0].data == "var" and e.children[2].data == "var":
@@ -152,6 +162,8 @@ pop rbx
 {asm_right}
 {operation} {left_reg}, {right_reg}""", left_reg
 
+    raise ValueError(f"Unknown expression type: {e.data}")
+
 compteur = 0
 
 def asm_cmd(c):
@@ -161,6 +173,7 @@ def asm_cmd(c):
     if c.data == "declaration":
         return ""
     if c.data == "affectation":
+        print(c)
         asm_code, result_reg = asm_exp(c.children[1])
         return f"""{asm_code}
 mov [{c.children[0].children[0]}], {result_reg}"""
@@ -276,7 +289,7 @@ mov [argv], rsi
 {asm_cmd(p.children[1])}
 {asm_exp(p.children[2])[0]}
 mov rdi, fmt
-mov rsi, rax
+mov rsi, r8
 xor rax, rax
 call printf
 pop rbp
@@ -390,12 +403,12 @@ if __name__ == "__main__":
     ast = g.parse(code)
     verif_type(ast)
     
-    for i in liste_vars_global:
-        print(f"{i} : {liste_vars_global[i]}")
+    # for i in liste_vars_global:
+    #     print(f"{i} : {liste_vars_global[i]}")
     
 
-    # asm = asm_prg(ast)
-    # print(asm)
+    asm = asm_prg(ast)
+    print(asm)
 
     #optimized_asm = optimize_asm(asm_code)
     #print(optimized_asm)
