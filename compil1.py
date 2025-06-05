@@ -134,7 +134,7 @@ def asm_exp(e, available_registers=None):
         val = str(e.children[0].value)
         label = f"float_{str(e.children[0].value).replace('.', '_').replace('-', 'm')}"
         double_literals.add((label, val))
-        return f"movsd xmm0, QWORD PTR [{label}]", "xmm0"
+        return f"movsd xmm0, QWORD [{label}]", "xmm0"
     
     if e.data == "paren":
         return asm_exp(e.children[0], available_registers)
@@ -185,7 +185,7 @@ pop rbx
         #à optimiser
         if number_of_double == 1:
             if is_double_expression(e.children[0]):
-                return f"""pxor xmm0 xmm0
+                return f"""pxor xmm0, xmm0
 {asm_exp(e.children[2])[0]}
 cvtsi2sd xmm0, rax
 movsd xmm1, xmm0
@@ -195,7 +195,7 @@ movsd xmm1, xmm0
                 return f"""
 {asm_exp(e.children[2])[0]}
 movsd xmm1, xmm0
-pxor xmm0 xmm0
+pxor xmm0, xmm0
 {asm_exp(e.children[0])[0]}
 cvtsi2sd xmm0, rax
 {opFloat[e.children[1].value]} xmm0, xmm1""", "xmm0"
