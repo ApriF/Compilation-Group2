@@ -1,4 +1,5 @@
 from lark import Lark
+from lark import Tree, Token
 print("\n")
 
 g=Lark("""
@@ -34,7 +35,7 @@ programme: "main" "(" liste_var ")" "{" commande "return" "(" expression ")" ";"
 
 %import common.WS
 %ignore WS
-""", start='expression')
+""", start='programme')
 
 
 
@@ -215,7 +216,7 @@ def is_double_expression(e):
     if e.data == "double":
         return 1
     if e.data == "var":
-        if liste_vars_global[e.value].children[0] == "double":
+        if liste_vars_global[e.children[0].value].children[0] == "double":
             return 1
         else:
             return 0
@@ -227,11 +228,64 @@ def is_double_expression(e):
     return number_of_double
 
 #Permet de déclarer les doubles dans .rdata afin de placer la valeur du double dans les registres xmm0, xmm1...
-def declaration_double_statique():
+def declaration_double_statique(ast):
+    global double_literals
+    init_double_literals_in_cmd(ast.children[1])  # commande principale
+    init_double_literals_in_expr(ast.children[2])
     out = ""
     for label, val in double_literals:
         out += f"{label}: dq {val}\n"
     return out
+
+def init_double_literals_in_expr(e):
+    if e.data == "double":
+        val = str(e.children[0].value)
+        label = f"float_{val.replace('.', '_').replace('-', 'm')}"
+        double_literals.add((label, val))
+
+    if e.data == "operation":
+        init_double_literals_in_expr(e.children[0])
+        init_double_literals_in_expr(e.children[2])
+
+    if e.data == "paren":
+        init_double_literals_in_expr(e.children[0])
+
+    if e.data == "deref" or e.data == "esperlu" or e.data == "allocation":
+        init_double_literals_in_expr(e.children[0])
+
+    if e.data == "var" or e.data == "number":
+        pass  # pas de double ici
+    else:
+        pass
+
+def init_double_literals_in_cmd(c):
+    if c.data == "affectation":
+        init_double_literals_in_expr(c.children[1])
+
+    if c.data == "print":
+        init_double_literals_in_expr(c.children[0])
+
+    if c.data == "while":
+        init_double_literals_in_expr(c.children[0])
+        init_double_literals_in_cmd(c.children[1])
+
+    if c.data == "if":
+        init_double_literals_in_expr(c.children[0])
+        init_double_literals_in_cmd(c.children[1])
+        if len(c.children) > 2:
+            init_double_literals_in_cmd(c.children[2])
+
+    if c.data == "sequence":
+        for child in c.children:
+            init_double_literals_in_cmd(child)
+
+    if c.data == "declaration":
+        pass
+
+    if c.data == "skip":
+        pass
+    else:
+        pass
 
 compteur = 0
 
@@ -243,14 +297,14 @@ def asm_cmd(c):
         return ""
     #à optimiser pour les doubles
     if c.data == "affectation":
-        if liste_vars_global[c.children[0].value].children[0] == "int":
+        if liste_vars_global[c.children[0].children[0].value].children[0] == "int":
             asm_code, result_reg = asm_exp(c.children[1])
             return f"""{asm_code}
 mov [{c.children[0].children[0]}], {result_reg}
 """
-        if liste_vars_global[c.children[0].value].children[0] == "double":
+        if liste_vars_global[c.children[0].children[0].value].children[0] == "double":
             return f"""{asm_exp(c.children[1])}
-movsd [{c.children[0].value}], xmm0
+movsd [{c.children[0].children[0].value}], xmm0
 """
         
     
@@ -326,7 +380,7 @@ argv: dq 0
 fmt: db "%d", 10,0
 
 section .rdata
-{declaration_double_statique()}
+{declaration_double_statique(p)}
 
 global main
 section .text
@@ -451,11 +505,12 @@ if __name__ == "__main__":
         code = f.read()
     ast = g.parse(code)
     verif_type(ast)
+
+
     
     # for i in liste_vars_global:
     #     print(f"{i} : {liste_vars_global[i]}")
     
-
     asm = asm_prg(ast)
     print(asm)
 

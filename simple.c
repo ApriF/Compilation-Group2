@@ -1,28 +1,10 @@
-main(int** a,int b) {
-    int* n;
-    *n = 8;
-    int m;
-    m = *n +1;
-
-
-    int c;
-    c = **a+b;
-    int* p;
-    int i;
-    i=4;
-    p = &i;
-    i = *p + 4;
-    int** q;
-    q = &p;
-    *p = i;
-    **q = i;
-    p = p+i;
-    p = malloc(8);
+main(int a,int b) {
     double x;
+    x = 2.7 + 2.3;
     x = 3.14;
     x = 3.e14;
 
-    double* y;
-    *y = x * 7.;
-    return(c);
+    double y;
+    y = x * 7.;
+    return(x);
 }
