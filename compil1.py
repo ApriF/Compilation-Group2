@@ -124,7 +124,7 @@ def asm_exp(e, available_registers=None):
             reg = available_registers[0]
             return f"mov {reg}, [{e.children[0].value}]", reg
         if liste_vars_global[e.children[0].value].children[0] == "double":
-            return f"movsd xmm0, [{e.children[0].value}]"
+            return f"movsd xmm0, [{e.children[0].value}]", "xmm0"
         
     if e.data == "number":
         reg = available_registers[0]
@@ -134,7 +134,7 @@ def asm_exp(e, available_registers=None):
         val = str(e.children[0].value)
         label = f"float_{str(e.children[0].value).replace('.', '_').replace('-', 'm')}"
         double_literals.add((label, val))
-        return f"movsd xmm0, QWORD PTR [{label}]"
+        return f"movsd xmm0, QWORD PTR [{label}]", "xmm0"
     
     if e.data == "paren":
         return asm_exp(e.children[0], available_registers)
@@ -186,28 +186,25 @@ pop rbx
         if number_of_double == 1:
             if is_double_expression(e.children[0]):
                 return f"""pxor xmm0 xmm0
-{asm_exp(e.children[2])}
+{asm_exp(e.children[2])[0]}
 cvtsi2sd xmm0, rax
 movsd xmm1, xmm0
-{asm_exp(e.children[0])}
-{opFloat[e.children[1].value]} xmm0, xmm1
-"""
+{asm_exp(e.children[0])[0]}
+{opFloat[e.children[1].value]} xmm0, xmm1""", "xmm0"
             else:
                 return f"""
-{asm_exp(e.children[2])}
+{asm_exp(e.children[2])[0]}
 movsd xmm1, xmm0
 pxor xmm0 xmm0
-{asm_exp(e.children[0])}
+{asm_exp(e.children[0])[0]}
 cvtsi2sd xmm0, rax
-{opFloat[e.children[1].value]} xmm0, xmm1
-"""
+{opFloat[e.children[1].value]} xmm0, xmm1""", "xmm0"
             
         if number_of_double == 2:
-            return f"""{asm_exp(e.children[0])}
+            return f"""{asm_exp(e.children[0])[0]}
 movsd xmm1, xmm0
-{asm_exp(e.children[2])}
-{opFloat[e.children[1].value]} xmm0, xmm1
-"""
+{asm_exp(e.children[2])[0]}
+{opFloat[e.children[1].value]} xmm0, xmm1""", "xmm0"
         # on lève une erreur pour les expressions non gérées
         raise ValueError(f"Unknown expression type: {e.data}")
 
@@ -230,7 +227,7 @@ def is_double_expression(e):
 #Permet de déclarer les doubles dans .rdata afin de placer la valeur du double dans les registres xmm0, xmm1...
 def declaration_double_statique(ast):
     global double_literals
-    init_double_literals_in_cmd(ast.children[1])  # commande principale
+    init_double_literals_in_cmd(ast.children[1])
     init_double_literals_in_expr(ast.children[2])
     out = ""
     for label, val in double_literals:
@@ -303,7 +300,8 @@ def asm_cmd(c):
 mov [{c.children[0].children[0]}], {result_reg}
 """
         if liste_vars_global[c.children[0].children[0].value].children[0] == "double":
-            return f"""{asm_exp(c.children[1])}
+            asm_code, result_reg = asm_exp(c.children[1])
+            return f"""{asm_code}
 movsd [{c.children[0].children[0].value}], xmm0
 """
         
@@ -464,7 +462,8 @@ def verif_type_exp(e):
         right_type = verif_type_exp(e.children[2])
         if left_type != right_type:
             type_int=Tree('type_prim', [Token('TYPE_PRIM', 'int')])
-            if not ((left_type == type_int and right_type.data == "pointeur") or (right_type == type_int and left_type.data == "pointeur")):
+            type_double=Tree('type_prim', [Token('TYPE_PRIM', 'double')])
+            if not ((left_type == type_int and right_type.data == "pointeur") or (right_type == type_int and left_type.data == "pointeur") or (left_type == type_int and right_type == type_double) or (left_type == type_double and right_type == type_int)):
                 raise ValueError(f"Type mismatch: {left_type} != {right_type}")
         return left_type
 
@@ -506,7 +505,9 @@ if __name__ == "__main__":
     ast = g.parse(code)
     verif_type(ast)
 
-
+    #print(ast.children[1])
+    print(f"\n\n{ast.children[2]}")
+    print(f"\n\n{asm_exp(ast.children[2])}")
     
     # for i in liste_vars_global:
     #     print(f"{i} : {liste_vars_global[i]}")
