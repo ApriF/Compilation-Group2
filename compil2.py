@@ -146,14 +146,15 @@ mov rsi, rax
 xor rax, rax
 call printf"""
     if c.data == "if":
-        return f"""{asm_exp(c.children[0])}
-cmp rax, 0
-jnz at{compteur_local}
-{"nop" if len(c.children)<3 else asm_exp(c.children[2])}
-jmp end{compteur_local}
-at{compteur_local}: nop
+        asm_code, result_reg = asm_exp(c.children[0])
+        return f"""{asm_code}
+cmp {result_reg}, 0
+jz at{compteur_local}
 {asm_cmd(c.children[1])}
-end{compteur_local}: nop"""
+jmp end{compteur_local}
+at{compteur_local}: {asm_cmd(c.children[2]) if len(c.children) > 2 else "nop"}
+end{compteur_local}: nop
+
     if c.data == "while":
         return f"""loop{compteur_local}: nop
 {asm_exp(c.children[0])}
@@ -196,7 +197,7 @@ def get_vars_commande(c):
     elif c.data == "while":
         return get_vars_expression(c.children[0]).union(get_vars_commande(c.children[1]))
 
-def declaration_variables():
+def declaration_variables():# ne gère que les entiers -> à upgrade avec les versions float et ptr
     global liste_vars_global
     declarations = ""
     for var in liste_vars_global:
@@ -353,12 +354,12 @@ if __name__ == "__main__":
     ast = g.parse(code)
     verif_type(ast)
     
-    # for i in liste_vars_global:
-    #     print(f"{i} : {liste_vars_global[i]}")
+    for i in liste_vars_global:
+        print(f"{i} : {liste_vars_global[i]}")
     
 
-    asm = asm_prg(ast)
-    print(asm)
+    # asm = asm_prg(ast)
+    # print(asm)
 
     # print(pp_programme(ast))
 
