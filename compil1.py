@@ -162,6 +162,7 @@ pop rbx
 {asm_right}
 {operation} {left_reg}, {right_reg}""", left_reg
 
+    # on lève une erreur pour les expressions non gérées
     raise ValueError(f"Unknown expression type: {e.data}")
 
 compteur = 0
@@ -212,39 +213,6 @@ jz end{compteur_local}
 {asm_cmd(c.children[1])}
 jmp loop{compteur_local}
 end{compteur_local}: nop"""
-
-def get_vars_expression(e):
-    if e.data == "var":
-        return {e.children[0].value}
-    else:
-        vars = set()
-        for child in e.children:
-            try:
-                if child.data == "var":
-                    vars.add(child.children[0].value)
-                else:
-                    vars.update(get_vars_expression(child))
-            except:
-                pass
-        return vars
-
-def get_vars_commande(c):
-    if c.data == "affectation":
-        return set(c.children[0].value).union(get_vars_expression(c.children[1]))
-    elif c.data == "print":
-        return get_vars_expression(c.children[0])
-    elif c.data == "skip":
-        return set()
-    elif c.data == "sequence":
-        if len(c.children) == 1:
-            return get_vars_commande(c.children[0])
-        return get_vars_commande(c.children[0]).union(get_vars_commande(c.children[1]))
-    elif c.data == "if":
-        vars_if = get_vars_commande(c.children[1])
-        vars_else = get_vars_commande(c.children[2]) if len(c.children) > 2 else set()
-        return get_vars_expression(c.children[0]).union(vars_if).union(vars_else)
-    elif c.data == "while":
-        return get_vars_expression(c.children[0]).union(get_vars_commande(c.children[1]))
 
 def declaration_variables():# ne gère que les entiers -> à upgrade avec les versions float et ptr
     global liste_vars_global
