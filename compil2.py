@@ -57,6 +57,7 @@ def pp_programme(p):
         return f"main({','.join([v.value for v in p.children[0].children])}) {{\n{pp_commande(p.children[1],1)} \n{tabu}return ({pp_expression(p.children[2])});\n}}"
 
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
+
 def asm_exp(e, available_registers=None):
     
     if available_registers is None:
@@ -115,11 +116,13 @@ def asm_cmd(c):
 mov [{c.children[0].value}], {result_reg}"""
     if c.data == "skip":
         return "nop"
+    
     if c.data == "sequence":
         if len(c.children) == 1:
             return asm_cmd(c.children[0])
         return f"""{asm_cmd(c.children[0])}
 {asm_cmd(c.children[1])}"""
+    
     if c.data == "print":
         asm_code, result_reg = asm_exp(c.children[0])
         return f"""{asm_code}
@@ -127,6 +130,7 @@ mov rdi, fmt
 mov rsi, {result_reg}
 xor rax, rax
 call printf"""
+    
     if c.data == "if":
         asm_code, result_reg = asm_exp(c.children[0])
         return f"""{asm_code}
@@ -136,6 +140,7 @@ jz at{compteur_local}
 jmp end{compteur_local}
 at{compteur_local}: {asm_cmd(c.children[2]) if len(c.children) > 2 else "nop"}
 end{compteur_local}: nop"""
+    
     if c.data == "while":
         asm_code, result_reg = asm_exp(c.children[0])
         return f"""loop{compteur_local}: {asm_code}
@@ -230,7 +235,7 @@ def optimize_asm(asm_code):
     return 0
 
 if __name__ == "__main__":
-    with open("simple.c", "r") as f:
+    with open("testopti.c", "r") as f:
         code = f.read()
     ast = g.parse(code)
     asm_code = asm_prg(ast)
