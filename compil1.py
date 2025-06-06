@@ -134,7 +134,7 @@ def asm_exp(e, available_registers=None):
         val = str(e.children[0].value)
         label = f"float_{str(e.children[0].value).replace('.', '_').replace('-', 'm')}"
         double_literals.add((label, val))
-        return f"movsd xmm0, QWORD [{label}]", "xmm0"
+        return f"movsd xmm0, [{label}]", "xmm0"
     
     if e.data == "paren":
         return asm_exp(e.children[0], available_registers)
@@ -182,11 +182,10 @@ pop rbx
 {asm_right}
 {operation} {left_reg}, {right_reg}""", left_reg
         
-        #à optimiser
+        #à optimiser, la conversion ne support pas les registres r8
         if number_of_double == 1:
             if is_double_expression(e.children[0]):
-                return f"""pxor xmm0, xmm0
-{asm_exp(e.children[2])[0]}
+                return f"""mov rax, [{e.children[2].children[0].value}]
 cvtsi2sd xmm0, rax
 movsd xmm1, xmm0
 {asm_exp(e.children[0])[0]}
@@ -195,8 +194,7 @@ movsd xmm1, xmm0
                 return f"""
 {asm_exp(e.children[2])[0]}
 movsd xmm1, xmm0
-pxor xmm0, xmm0
-{asm_exp(e.children[0])[0]}
+mov rax, [{e.children[0].children[0].value}]
 cvtsi2sd xmm0, rax
 {opFloat[e.children[1].value]} xmm0, xmm1""", "xmm0"
             
@@ -368,6 +366,14 @@ def initialisation_variables(liste_vars):
             code += initialisation_variable(liste_vars.children[i+1].value, compteur+1+i//2)
         return code
 
+def type_return(variable):
+    if variable[1] == "xmm0":
+        return f"""{variable[0]}
+lea rdi, [rel fmtf]"""
+    else:
+        return f"""{variable[0]}
+mov rdi, fmt
+mov rsi,r8"""
 
 def asm_prg(p):
     if p.data == "main":
@@ -376,6 +382,7 @@ section .data
 argv: dq 0
 {declaration_variables()}
 fmt: db "%d", 10,0
+fmtf: db "%f", 10,0
 
 section .rdata
 {declaration_double_statique(p)}
@@ -387,9 +394,7 @@ push rbp
 mov [argv], rsi
 {initialisation_variables(p.children[0])}
 {asm_cmd(p.children[1])}
-{asm_exp(p.children[2])[0]}
-mov rdi, fmt
-mov rsi, r8
+{type_return(asm_exp(p.children[2]))}
 xor rax, rax
 call printf
 pop rbp

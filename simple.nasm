@@ -10,13 +10,14 @@ kk: dq 0
 y: dq 0
 
 fmt: db "%d", 10,0
+fmtf: db "%f", 10,0
 
 section .rdata
+float_2_7: dq 2.7
+float_3_e14: dq 3.e14
 float_3_14: dq 3.14
 float_2_3: dq 2.3
-float_3_e14: dq 3.e14
 float_7_: dq 7.
-float_2_7: dq 2.7
 
 
 global main
@@ -34,16 +35,16 @@ call atoi
 mov [b], rax
 
 
-movsd xmm0, QWORD [float_2_7]
+movsd xmm0, [float_2_7]
 movsd xmm1, xmm0
-movsd xmm0, QWORD [float_2_3]
+movsd xmm0, [float_2_3]
 addsd xmm0, xmm1
 movsd [x], xmm0
 
-movsd xmm0, QWORD [float_3_14]
+movsd xmm0, [float_3_14]
 movsd [x], xmm0
 
-movsd xmm0, QWORD [float_3_e14]
+movsd xmm0, [float_3_e14]
 movsd [x], xmm0
 
 
@@ -55,8 +56,7 @@ mov r8, 4
 mov [q], r8
 
 
-pxor xmm0, xmm0
-mov r8, [p]
+mov rax, [p]
 cvtsi2sd xmm0, rax
 movsd xmm1, xmm0
 movsd xmm0, [x]
@@ -66,13 +66,12 @@ movsd [kk], xmm0
 
 movsd xmm0, [x]
 movsd xmm1, xmm0
-movsd xmm0, QWORD [float_7_]
+movsd xmm0, [float_7_]
 mulsd xmm0, xmm1
 movsd [y], xmm0
 
 movsd xmm0, [x]
-mov rdi, fmt
-mov rsi, r8
+lea rdi, [rel fmtf]
 xor rax, rax
 call printf
 pop rbp
