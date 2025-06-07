@@ -236,7 +236,7 @@ def init_double_literals_in_expr(e):
     if e.data == "double":
         val = str(e.children[0].value)
         label = f"float_{val.replace('.', '_').replace('-', 'm')}"
-        double_literals.add((label, val))
+        double_literals.add((label, f"__float64__({val})"))
 
     if e.data == "operation":
         init_double_literals_in_expr(e.children[0])

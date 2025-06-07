@@ -13,11 +13,11 @@ fmt: db "%d", 10,0
 fmtf: db "%f", 10,0
 
 section .rdata
-float_2_7: dq 2.7
-float_3_e14: dq 3.e14
-float_3_14: dq 3.14
-float_2_3: dq 2.3
-float_7_: dq 7.
+float_3_14: dq __float64__(3.14)
+float_2_7: dq __float64__(2.7)
+float_3_e14: dq __float64__(3.e14)
+float_2_3: dq __float64__(2.3)
+float_7_: dq __float64__(7.)
 
 
 global main
