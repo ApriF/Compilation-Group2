@@ -1,6 +1,7 @@
 main(x,y,z){
     c=0;
     d=0;
+    e=5;
     if (c){x=x+1;}
     else{x=x+x;}
     if (d){z=10;}
@@ -12,5 +13,6 @@ main(x,y,z){
         d=d-1;
         }
     z=x+y+z+(d+d+d);
+    y=y+e;
     return(z);
 }

@@ -235,7 +235,7 @@ def optimize_asm(asm_code):
     return 0
 
 if __name__ == "__main__":
-    with open("testopti.c", "r") as f:
+    with open("simple.c", "r") as f:
         code = f.read()
     ast = g.parse(code)
     asm_code = asm_prg(ast)
