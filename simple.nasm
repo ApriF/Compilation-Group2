@@ -13,11 +13,11 @@ fmt: db "%d", 10,0
 fmtf: db "%f", 10,0
 
 section .rdata
-float_3_14: dq __float64__(3.14)
-float_2_7: dq __float64__(2.7)
+float_7_: dq __float64__(7.)
 float_3_e14: dq __float64__(3.e14)
 float_2_3: dq __float64__(2.3)
-float_7_: dq __float64__(7.)
+float_2_7: dq __float64__(2.7)
+float_3_14: dq __float64__(3.14)
 
 
 global main
@@ -72,7 +72,7 @@ movsd [y], xmm0
 
 movsd xmm0, [x]
 lea rdi, [rel fmtf]
-xor rax, rax
+mov rax, 1
 call printf
 pop rbp
 ret

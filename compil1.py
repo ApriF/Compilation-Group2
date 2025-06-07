@@ -369,11 +369,13 @@ def initialisation_variables(liste_vars):
 def type_return(variable):
     if variable[1] == "xmm0":
         return f"""{variable[0]}
-lea rdi, [rel fmtf]"""
+lea rdi, [rel fmtf]
+mov rax, 1"""
     else:
         return f"""{variable[0]}
 mov rdi, fmt
-mov rsi,r8"""
+mov rsi,r8
+xor rax, rax"""
 
 def asm_prg(p):
     if p.data == "main":
@@ -395,7 +397,6 @@ mov [argv], rsi
 {initialisation_variables(p.children[0])}
 {asm_cmd(p.children[1])}
 {type_return(asm_exp(p.children[2]))}
-xor rax, rax
 call printf
 pop rbp
 ret"""
