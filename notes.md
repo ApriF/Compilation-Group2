@@ -118,9 +118,6 @@ optimisations :
 
     x+x     -> faire en sorte qu'il n'y ait qu'un seul mov rax, [x]
 
-    x=3              | supprimer le     mov [x], rax
-    x=x+1            |                  mov rax, [x]
-
 
 ## Debugger
 Instructions pour gdb :
@@ -139,3 +136,11 @@ Instructions pour gdb :
     q (quit)
 
 Autre possibilité : Cutter ou peda (+gdb)
+
+## RENDU
+
+- ajouter gbfv au dépot
+- faire un readme.md qui explique ce qu'on a et comment compiler
+- un src.c avec un code exemple
+- les fichiers .py
+- présentation : ce qui fonctionne bien puis les limitations
