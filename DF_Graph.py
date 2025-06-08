@@ -280,10 +280,11 @@ if __name__ == "__main__":
     with open("/home/kakouzz/Desktop/lark_bark/Compilation-Group2/encore+simple.asm", "w") as f:
         f.write(DF_Graph_asm[2])
     #highlighted_nodes = visualize_data_flow_graph(DF_Graph_asm[0])
-    #highlighted_nodes = visualize_data_flow_graph(DF_Graph_asm[0],plot=True)
+    highlighted_nodes = visualize_data_flow_graph(DF_Graph_asm[0],plot=True)
     #print("Highlighted nodes matrix:", highlighted_nodes)
-    #dead_instructions = detect_dead_code(highlighted_nodes)
-    #print("Dead instructions (indices):", dead_instructions)
+    dead_instructions = detect_dead_code(highlighted_nodes)
+    print("Dead instructions (indices):", dead_instructions)
+    
     optimized_asm_code = optimise_assembly_code(asm_code)
     with open("/home/kakouzz/Desktop/lark_bark/Compilation-Group2/optimised_simple.asm", "w") as f:
         f.write(optimized_asm_code)
