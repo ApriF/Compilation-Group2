@@ -72,7 +72,7 @@ main(int arg1, double arg2) {
    - l'exécutable du code, dans le fichier `a.out`
    - le compilateur fait également une vérification du typage de l'ensemble du code, ainsi que des optimisations de code lorsque l'on ne travail que sur des entiers.
 
-## 🛠️ Fonctionnement Interne
+## Fonctionnement Interne
 
 ### Pipeline de Compilation
 1. **Analyse Syntaxique** : Utilisation de Lark pour le parsing
