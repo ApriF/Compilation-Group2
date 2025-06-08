@@ -107,8 +107,8 @@ def pp_programme(p):
         ret += f"{tabu}return ({pp_expression(p.children[2])});\n"
         ret += "}"
         return ret
-op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
-
+    
+op2asm = {"+": "add", "-": "sub", "*": "imul"}
 def asm_exp(e, available_registers=None):
     
     if available_registers is None:
