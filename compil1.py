@@ -352,7 +352,14 @@ def declaration_variables():
     return declarations
 
 def initialisation_variable(var, compteur):
-    return f"""mov rbx, [argv]
+    if liste_vars_global[var].children[0] == "double" :
+        return f"""mov rbx, [argv]
+mov rdi, [rbx+{compteur*8}]
+call atoi
+mov [{var}], xmm0
+"""
+    else:
+        return f"""mov rbx, [argv]
 mov rdi, [rbx+{compteur*8}]
 call atoi
 mov [{var}], rax
