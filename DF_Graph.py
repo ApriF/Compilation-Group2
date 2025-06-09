@@ -49,7 +49,39 @@ def data_flow_graph(asm_code):
     print("Nombre de lignes à analyser:",M)
     assert N== len(debut_untouched) + M_naze + len(fin_untouched), "Total lines do not match!"
 
-    Used_variables=variables + registers
+    #Pré-analyse
+
+    if_else=False
+    push=False
+    printed=False
+    fixed_registers=[]
+    all_fixed_registers=["r8","r9","r10","r11","r12","r13","r14","r15","rbx"]
+
+    for i in range(M):
+        line=to_analine[i]
+        if line.startswith("cmp"):
+            if_else=True
+        if line.startswith("call printf"):
+            printed=True
+        if line.startswith("pop") or line.startswith("push"):
+            push=True
+        if line.startswith(("mov","add","xor","sub","imul","mul","div")):
+            parts=line.split()
+            var1=parts[1].strip(",")
+            if var1 in all_fixed_registers and var1 not in fixed_registers:
+                fixed_registers.append(var1)
+    
+
+
+    Used_variables=variables+fixed_registers
+    if push:
+        Used_variables+=["rcx","heap"]
+    if if_else:
+        Used_variables+=["flg"]
+    if printed:
+        Used_variables+=["rsi","rdi","fmt","rax"]
+    Used_variables+=["nid"]
+    
 
     # Create a mapping of variables to their indices
     variable_to_index = {var: idx for idx, var in enumerate(Used_variables)}
