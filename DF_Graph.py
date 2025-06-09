@@ -3,7 +3,7 @@ def data_flow_graph(asm_code):
     Construct a data flow graph of the assembly code, indicating dependencies of each variable/register 
     before and after each instruction in the asm_code
     """
-    registers=["r8","r9","r10","r11","r12","r13","r14","r15","rbx","rcx","heap","rsi","rdi","fmt","rax","vis"]
+    registers=["r8","r9","r10","r11","r12","r13","r14","r15","rbx","rcx","heap","flg","rsi","rdi","fmt","rax","nid"]
     variables=[]
     false_variables=["argv","fmt"]
     assembly_lines = asm_code.splitlines()
@@ -59,14 +59,27 @@ def data_flow_graph(asm_code):
     data_flow_graph=[[[] for _ in range(nb_var)] for _ in range(M+1)]
     # The first line is just the name of the variables
     data_flow_graph[0] = Used_variables
-
+    
+    no_push=True
+    nid_index = variable_to_index.get("nid")
+    flg_index = variable_to_index.get("flg")
+    
     # Fill the data flow graph
     for i in range(1,M+1):
         line = to_analine[i-1]
         concerned_var=None
+        balise=False
+        chg_flg=False
+        jmp=False
+
+        if line.startswith(("jmp","jz")):
+            jmp=True
+
         if ":" in line:
             # Remove label from the line
             line = line.split(":")[1].strip()
+            balise=True
+
          # Simple assignment (mov, pop)
         if line.startswith(("mov","pop")):
 
@@ -96,16 +109,23 @@ def data_flow_graph(asm_code):
             dest="heap"
             concerned_var = variable_to_index.get(dest)
             src_index = variable_to_index.get(src)
-            data_flow_graph[i][concerned_var] = [(i-1, src_index), (i-1, concerned_var)]
+            if no_push:
+                data_flow_graph[i][concerned_var] = [(i-1, src_index)]
+                no_push=False
+            else:
+                data_flow_graph[i][concerned_var] = [(i-1, src_index), (i-1, concerned_var)]
         
-        # Handle arithmetic and logical operations (add, sub, mul, div, cmp, xor)
-        elif line.startswith(("add", "sub", "mul", "div"," cmp", "xor")):
+        # Handle arithmetic and logical operations (add, sub, imul, mul, div, xor)
+        elif line.startswith(("add", "sub", "imul","mul", "div", "xor","cmp")):
             parts = line.split()
             dest = parts[1].strip(",")
             concerned_var = variable_to_index.get(dest)
             src = parts[2]
             if src.isdigit():
-                if data_flow_graph[i-1][concerned_var].isdigit():
+                if line.startswith("cmp"):
+                    chg_flg=True
+                    data_flow_graph[i][flg_index] =[(i-1,concerned_var)]
+                if type(data_flow_graph[i-1][concerned_var])!=list and data_flow_graph[i-1][concerned_var].isdigit():
                     result=0
                     if line.startswith("add"):
                         result = int(data_flow_graph[i-1][concerned_var][0]) + int(src)
@@ -113,6 +133,8 @@ def data_flow_graph(asm_code):
                         result = int(data_flow_graph[i-1][concerned_var][0]) - int(src)
                     elif line.startswith("mul"):
                         result = int(data_flow_graph[i-1][concerned_var][0]) * int(src)
+                    elif line.startswith("imul"):
+                        result== int(data_flow_graph[i-1][concerned_var][0]) * int(src)
                     elif line.startswith("div"):
                         result = int(data_flow_graph[i-1][concerned_var][0]) // int(src)
                     elif line.startswith("cmp"):
@@ -121,8 +143,11 @@ def data_flow_graph(asm_code):
                         result = int(data_flow_graph[i-1][concerned_var][0]) ^ int(src)
                     data_flow_graph[i][concerned_var] = result
                 else:    
-                    data_flow_graph[i][concerned_var] = int(src)
+                    data_flow_graph[i][concerned_var] = [(i-1, concerned_var)]
             else:
+                if line.startswith("cmp"):                
+                    chg_flg=True
+                    data_flow_graph[i][flg_index] = [(i-1,concerned_var), (i-1, src)]
                 if src==dest:
                     # Specific case for xor rax,rax
                     if line.startswith("xor"):
@@ -139,20 +164,28 @@ def data_flow_graph(asm_code):
             rdi_index = variable_to_index.get("rdi")
             rsi_index = variable_to_index.get("rsi")
             rax_index = variable_to_index.get("rax")
-            concerned_var = variable_to_index.get("vis")
+            concerned_var = variable_to_index.get("nid")
 
-            # Add dependencies for vis (for visible)
+            # Add dependencies for nid (for needed)
             data_flow_graph[i][concerned_var] = [(i - 1, rdi_index),(i - 1, rsi_index),(i - 1, rax_index),]
 
+
+        if balise or jmp:
+            if line.startswith("jz"):
+                data_flow_graph[i][nid_index] = [(i - 1,flg_index)]
+            else:
+                data_flow_graph[i][nid_index] = 42
+
         for j in range(nb_var):
-            if j!= concerned_var:
+            if j!= concerned_var and (j!=nid_index or (balise==False and jmp==False)) and (j!=flg_index or chg_flg==False):
                 data_flow_graph[i][j] = [(i-1, j)]
+            
     
-    # Add a final row for "vis" depending on "r8"
-    vis_index = variable_to_index.get("vis")
+    # Add a final row for "nid" depending on "r8"
+    nid_index = variable_to_index.get("nid")
     r8_index = variable_to_index.get("r8")
-    final_row = [[(M, j)] if j == vis_index else [(M, j)] for j in range(nb_var)]
-    final_row[vis_index] = [(M, r8_index)]
+    final_row = [[(M, j)] if j == nid_index else [(M, j)] for j in range(nb_var)]
+    final_row[nid_index] = [(M, r8_index)]
     data_flow_graph.append(final_row)
 
     newasm=""
@@ -163,7 +196,7 @@ def data_flow_graph(asm_code):
 def visualize_data_flow_graph(data_flow_graph, plot=False):
     """
     Visualize the data flow graph and highlight the path(s) starting from nodes where
-    the "vis" (for "visible") variable is modified without depending on its previous value.
+    the "nid" variable is modified without depending on its previous value.
     Return a matrix with highlighted nodes and their dependencies.
     """
     import matplotlib.pyplot as plt
@@ -173,7 +206,7 @@ def visualize_data_flow_graph(data_flow_graph, plot=False):
 
     nb_var = len(data_flow_graph[0])
     M = len(data_flow_graph) - 1
-    target_index = data_flow_graph[0].index("vis")  # Get the index of the target variable
+    target_index = data_flow_graph[0].index("nid")  # Get the index of the target variable
 
     # Add nodes and edges to the graph
     for i in range(0, M + 1):
@@ -185,20 +218,20 @@ def visualize_data_flow_graph(data_flow_graph, plot=False):
                 if type(data_flow_graph[i][j]) is not int:
                     for dep in data_flow_graph[i][j]:
                         if isinstance(dep, tuple):
-                            G.add_node(dep)  # Ensure dependency node exists
+                            G.add_node(dep)
                             G.add_edge(dep, (i, j))
                         else:
-                            G.add_node((i - 1, j))  # Ensure previous node exists
+                            G.add_node((i - 1, j))
                             G.add_edge((i - 1, j), (i, j))
 
     # Identify starting points for highlighting
     starting_points = []
     for i in range(1, M + 1):
-        dep_vis = data_flow_graph[i][target_index]
-        if dep_vis != [(i - 1, target_index)]:
+        dep_nid = data_flow_graph[i][target_index]
+        if dep_nid != [(i - 1, target_index)]:
             starting_points.append((i, target_index))
 
-    # Add the final row for "vis" as a starting point
+    # Add the final row for "nid" as a starting point
     starting_points.append((M, target_index))
 
     # Trace paths from the starting points
@@ -206,36 +239,38 @@ def visualize_data_flow_graph(data_flow_graph, plot=False):
     stack = starting_points[:]
     highlighted_nodes = [["." for _ in range(nb_var)] for _ in range(M + 1)]  # Initialize the matrix
     while stack:
-        current = stack.pop()
+        current = stack.pop(0)
         if current in G.nodes and highlighted_nodes[current[0]][current[1]] == ".":
             highlighted_nodes[current[0]][current[1]] = data_flow_graph[current[0]][current[1]]  # Mark as highlighted
             for predecessor in G.predecessors(current):
                 paths_to_highlight.append((predecessor, current))
                 stack.append(predecessor)
-    
-    print("fini, en train d'afficher le graphe...")
 
-    # Define a grid layout: x = variable index (j), y = instruction index (i)
-    pos = {(i, j): (j, -i) for i in range(0, M + 1) for j in range(nb_var) if (i, j) in G.nodes}
-    labels = {n: G.nodes[n]['label'] for n in G.nodes if 'label' in G.nodes[n]}
-    if plot:
+    # Filter nodes to color based on highlighted_nodes
+    nodes_to_color = [
+        (i, j) for i in range(len(highlighted_nodes)) for j in range(len(highlighted_nodes[i]))
+        if highlighted_nodes[i][j] != "."
+    ]
+
+    if plot: 
+        print("Construction du graphe, veuillez patienter...")
+
+        # Define a grid layout: x = variable index (j), y = instruction index (i)
+        pos = {(i, j): (j, -i) for i in range(0, M + 1) for j in range(nb_var) if (i, j) in G.nodes}
+        labels = {n: G.nodes[n]['label'] for n in G.nodes if 'label' in G.nodes[n]}
         # Draw the graph
         plt.figure(figsize=(12, 8))
-        print("1")
         nx.draw(
             G, pos, with_labels=True, labels=labels, node_size=700, node_color='lightblue', font_size=10, font_color='black', arrows=True
         )
-        print("2")
         # Highlight the path(s) starting from the identified nodes
         nx.draw_networkx_edges(
             G, pos, edgelist=paths_to_highlight, edge_color="red", width=2.5
         )
-        print("3")
         nx.draw_networkx_nodes(
-            G, pos, nodelist=[n for edge in paths_to_highlight for n in edge], node_color="orange", node_size=800
+            G, pos, nodelist=nodes_to_color, node_color="orange", node_size=800
         )
-        print("4")
-        plt.title(f"Data Flow Graph (Highlighting Paths from {'vis'} Modifications)")
+        plt.title(f"Data Flow Graph (Highlighting Paths from {'nid'} Modifications)")
         plt.xlabel("Variables")
         plt.ylabel("Instructions")
         plt.show()
@@ -283,7 +318,7 @@ def optimise_assembly_code(asm_code):
 # Example usage
 if __name__ == "__main__":
 
-    asm_file="testopti.asm"
+    asm_file="simple.asm"
     asm_analyzed_file=asm_file.replace(".asm","_analyzed.asm")
     asm_optimized_file=asm_file.replace(".asm","_optimized.asm")
 
