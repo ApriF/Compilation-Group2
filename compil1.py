@@ -1,5 +1,7 @@
 from lark import Lark
 from lark import Tree, Token
+from DF_Graph import optimise_assembly_code  # Import the function
+
 print("\n")
 
 g=Lark("""
@@ -105,6 +107,7 @@ def pp_programme(p):
         ret += f"{tabu}return ({pp_expression(p.children[2])});\n"
         ret += "}"
         return ret
+      
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
 
 def recursive_deref(e, available_registers):
@@ -121,6 +124,7 @@ def asm_exp(e, available_registers=None):
     if available_registers is None:
         available_registers = ["r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx"]
     if e.data == "var":
+
         reg = available_registers[0]
         return f"mov {reg}, [{e.children[0].value}]", reg
     if e.data == "number" or e.data == "double": # peut ête à modifier pour gérer les doubles
@@ -129,6 +133,7 @@ def asm_exp(e, available_registers=None):
     if e.data == "paren":
         return asm_exp(e.children[0], available_registers)
     
+
 
     if e.data == "allocation":
             return f"""
@@ -155,6 +160,7 @@ def asm_exp(e, available_registers=None):
     if e.data == "esperlu":
         reg = available_registers[0]
         return f"lea {reg}, [{e.children[0].value}]"
+
 
     if e.data == "operation":
         # Optimisation de type x+x
@@ -200,7 +206,7 @@ def asm_cmd(c):
     if c.data == "declaration":
         return ""
     if c.data == "affectation":
-        print(c)
+
         asm_code, result_reg = asm_exp(c.children[1])
         return f"""{asm_code}
 mov [{c.children[0].children[0]}], {result_reg}"""
@@ -387,30 +393,30 @@ def verif_type_exp(e):
     else:
         raise ValueError(f"Unknown expression type: {e.data}")
 
-def optimize_asm(asm_code):
-    return 0
-
 if __name__ == "__main__":
+    
+    code_file= "testopti.c"
+    asm_file=code_file.replace(".c",".asm")
+    asm_optimized_file=asm_file.replace(".asm","_optimized.asm")
+    
+    
     liste_vars_global = {}
-    with open("simple.c", "r") as f:
+
+    # Parsing the code
+    with open(code_file, "r") as f:
         code = f.read()
     ast = g.parse(code)
     verif_type(ast)
     
     # for i in liste_vars_global:
     #     print(f"{i} : {liste_vars_global[i]}")
-    
 
+    # Assembly code generated
     asm = asm_prg(ast)
-    print(asm)
+    with open(asm_file, "w") as f:
+        f.write(asm)
 
-    #optimized_asm = optimize_asm(asm_code)
-    #print(optimized_asm)
-    
-
-    # print(pp_programme(ast))
-
-    # print(asm_exp(ast))
-# print(ast.children)
-# print(ast.children[0].type)
-# print(ast.children[0].value)
+    # Optimized assembly code
+    optimized_asm = optimise_assembly_code(asm)
+    with open(asm_optimized_file, "w") as f:
+        f.write(optimized_asm)
