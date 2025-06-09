@@ -3,7 +3,7 @@ def data_flow_graph(asm_code):
     Construct a data flow graph of the assembly code, indicating dependencies of each variable/register 
     before and after each instruction in the asm_code
     """
-    registers=["r8","r9","r10","r11","r12","r13","r14","r15","rbx","rcx","rsi","rdi","fmt","rax","vis"]
+    registers=["r8","r9","r10","r11","r12","r13","r14","r15","rbx","rcx","heap","rsi","rdi","fmt","rax","vis"]
     variables=[]
     false_variables=["argv","fmt"]
     assembly_lines = asm_code.splitlines()
@@ -49,7 +49,7 @@ def data_flow_graph(asm_code):
     print("Nombre de lignes à analyser:",M)
     assert N== len(debut_untouched) + M_naze + len(fin_untouched), "Total lines do not match!"
 
-    Used_variables=["heap"]+variables + registers
+    Used_variables=variables + registers
 
     # Create a mapping of variables to their indices
     variable_to_index = {var: idx for idx, var in enumerate(Used_variables)}
@@ -67,8 +67,8 @@ def data_flow_graph(asm_code):
         if ":" in line:
             # Remove label from the line
             line = line.split(":")[1].strip()
-        # Simple assignments (mov, push, pop)
-        if line.startswith(("mov","push","pop")):
+         # Simple assignment (mov, pop)
+        if line.startswith(("mov","pop")):
 
             # Handle mov, push, and pop instructions
             if line.startswith("mov"):
@@ -76,10 +76,6 @@ def data_flow_graph(asm_code):
                 dest = parts[1].strip(",")
                 concerned_var=variable_to_index.get(dest)
                 src = parts[2]
-            elif line.startswith("push"):
-                parts = line.split()
-                src = parts[1]
-                concerned_var = variable_to_index.get("heap")
             elif line.startswith("pop"):
                 parts = line.split()
                 dest = parts[1]
@@ -92,6 +88,15 @@ def data_flow_graph(asm_code):
             else:
                 src_index= variable_to_index.get(src)
                 data_flow_graph[i][concerned_var] = [(i-1,src_index)]
+
+        # Handle push
+        elif line.startswith("push"):
+            parts = line.split()
+            src = parts[1].strip(",")
+            dest="heap"
+            concerned_var = variable_to_index.get(dest)
+            src_index = variable_to_index.get(src)
+            data_flow_graph[i][concerned_var] = [(i-1, src_index), (i-1, concerned_var)]
         
         # Handle arithmetic and logical operations (add, sub, mul, div, cmp, xor)
         elif line.startswith(("add", "sub", "mul", "div"," cmp", "xor")):
@@ -202,11 +207,13 @@ def visualize_data_flow_graph(data_flow_graph, plot=False):
     highlighted_nodes = [["." for _ in range(nb_var)] for _ in range(M + 1)]  # Initialize the matrix
     while stack:
         current = stack.pop()
-        if current in G.nodes:
+        if current in G.nodes and highlighted_nodes[current[0]][current[1]] == ".":
             highlighted_nodes[current[0]][current[1]] = data_flow_graph[current[0]][current[1]]  # Mark as highlighted
             for predecessor in G.predecessors(current):
                 paths_to_highlight.append((predecessor, current))
                 stack.append(predecessor)
+    
+    print("fini, en train d'afficher le graphe...")
 
     # Define a grid layout: x = variable index (j), y = instruction index (i)
     pos = {(i, j): (j, -i) for i in range(0, M + 1) for j in range(nb_var) if (i, j) in G.nodes}
@@ -214,18 +221,20 @@ def visualize_data_flow_graph(data_flow_graph, plot=False):
     if plot:
         # Draw the graph
         plt.figure(figsize=(12, 8))
+        print("1")
         nx.draw(
             G, pos, with_labels=True, labels=labels, node_size=700, node_color='lightblue', font_size=10, font_color='black', arrows=True
         )
-
+        print("2")
         # Highlight the path(s) starting from the identified nodes
         nx.draw_networkx_edges(
             G, pos, edgelist=paths_to_highlight, edge_color="red", width=2.5
         )
+        print("3")
         nx.draw_networkx_nodes(
             G, pos, nodelist=[n for edge in paths_to_highlight for n in edge], node_color="orange", node_size=800
         )
-
+        print("4")
         plt.title(f"Data Flow Graph (Highlighting Paths from {'vis'} Modifications)")
         plt.xlabel("Variables")
         plt.ylabel("Instructions")
@@ -273,18 +282,33 @@ def optimise_assembly_code(asm_code):
 
 # Example usage
 if __name__ == "__main__":
-    asm_file_path = "/home/kakouzz/Desktop/lark_bark/Compilation-Group2/simple.asm"
-    with open(asm_file_path, "r") as asm_file:
+
+    asm_file="testopti.asm"
+    asm_analyzed_file=asm_file.replace(".asm","_analyzed.asm")
+    asm_optimized_file=asm_file.replace(".asm","_optimized.asm")
+
+    #Read the asm
+    with open(asm_file, "r") as asm_file:
         asm_code = asm_file.read()
-    DF_Graph_asm = data_flow_graph(asm_code)
-    with open("/home/kakouzz/Desktop/lark_bark/Compilation-Group2/encore+simple.asm", "w") as f:
-        f.write(DF_Graph_asm[2])
-    #highlighted_nodes = visualize_data_flow_graph(DF_Graph_asm[0])
-    highlighted_nodes = visualize_data_flow_graph(DF_Graph_asm[0],plot=True)
-    #print("Highlighted nodes matrix:", highlighted_nodes)
-    dead_instructions = detect_dead_code(highlighted_nodes)
-    print("Dead instructions (indices):", dead_instructions)
     
+    # Construct the data flow graph
+    DF_Graph_asm = data_flow_graph(asm_code)
+    
+    # Save the analyzed assembly code
+    with open(asm_analyzed_file, "w") as f:
+        f.write(DF_Graph_asm[2])
+
+    # Visualize the data flow graph and highlight paths
+    #highlighted_nodes = visualize_data_flow_graph(DF_Graph_asm[0], plot=False)
+    highlighted_nodes = visualize_data_flow_graph(DF_Graph_asm[0],plot=True)
+    
+    # Detect dead code in the assembly code
+    #dead_instructions = detect_dead_code(highlighted_nodes)
+    #print("Dead instructions (indices):", dead_instructions)
+    
+    # Optimize the assembly code by removing dead code
     optimized_asm_code = optimise_assembly_code(asm_code)
-    with open("/home/kakouzz/Desktop/lark_bark/Compilation-Group2/optimised_simple.asm", "w") as f:
+
+    # Save the optimized assembly code
+    with open(asm_optimized_file, "w") as f:
         f.write(optimized_asm_code)

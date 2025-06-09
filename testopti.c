@@ -1,4 +1,5 @@
-main(x,y,z){
+main(int x,int y,int z){
+    int c;
     c=0;
     if (c){
     while(x)

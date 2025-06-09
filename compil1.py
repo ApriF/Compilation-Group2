@@ -363,8 +363,16 @@ def verif_type_exp(e):
         raise ValueError(f"Unknown expression type: {e.data}")
 
 if __name__ == "__main__":
+    
+    code_file= "testopti.c"
+    asm_file=code_file.replace(".c",".asm")
+    asm_optimized_file=asm_file.replace(".asm","_optimized.asm")
+    
+    
     liste_vars_global = {}
-    with open("simple.c", "r") as f:
+
+    # Parsing the code
+    with open(code_file, "r") as f:
         code = f.read()
     ast = g.parse(code)
     verif_type(ast)
@@ -374,10 +382,10 @@ if __name__ == "__main__":
     
     # Assembly code generated
     asm = asm_prg(ast)
-    with open("/home/kakouzz/Desktop/lark_bark/Compilation-Group2/simple.asm", "w") as f:
+    with open(asm_file, "w") as f:
         f.write(asm)
 
     # Optimized assembly code
     optimized_asm = optimise_assembly_code(asm)
-    with open("/home/kakouzz/Desktop/lark_bark/Compilation-Group2/optimized_simple.asm", "w") as f:
+    with open(asm_optimized_file, "w") as f:
         f.write(optimized_asm)
