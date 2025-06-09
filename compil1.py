@@ -107,13 +107,24 @@ def pp_programme(p):
         ret += f"{tabu}return ({pp_expression(p.children[2])});\n"
         ret += "}"
         return ret
-    
-op2asm = {"+": "add", "-": "sub", "*": "imul"}
+      
+op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
+
+def recursive_deref(e, available_registers):
+    reg = available_registers[0]
+    if e.data == "var":
+        return f"lea {reg}, [{e.children[0].value}]"
+    elif e.data == "deref":
+        rec = recursive_deref(e.children[0], available_registers)
+        return f"""{rec}
+mov {reg}, [{reg}]"""
+
 def asm_exp(e, available_registers=None):
     
     if available_registers is None:
         available_registers = ["r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15","rbx"]
     if e.data == "var":
+
         reg = available_registers[0]
         return f"mov {reg}, [{e.children[0].value}]", reg
     if e.data == "number" or e.data == "double": # peut ête à modifier pour gérer les doubles
@@ -122,15 +133,34 @@ def asm_exp(e, available_registers=None):
     if e.data == "paren":
         return asm_exp(e.children[0], available_registers)
     
-    if e.data == "allocation":
-        asm_code, result_reg = asm_exp(e.children[0])
-        return "nop", result_reg # à modifier pour gérer les mallocs
 
-    if e.data == "deref": # à modifier pour gérer les pointeurs
-        return asm_exp(e.children[0], available_registers)
-    if e.data == "esperlu": #  à modifier pour gérer les pointeurs
-        newe = Tree('var', [Token('IDENTIFIER', e.children[0].value)])
-        return asm_exp(newe, available_registers)
+
+    if e.data == "allocation":
+            return f"""
+        {asm_exp(e.children[0])}
+        mov rdi, rax
+        call malloc
+        """
+    
+    #if e.data == "deref":
+    #    return f"""{asm_exp(e.children[0])}
+    #mov rax, [rax]"""
+
+    if e.data == "deref":
+        reg = available_registers[0]
+        code = recursive_deref(e.children[0], available_registers)
+        return f"""{code}
+    mov {reg}, [{reg}]"""
+
+    #if e.data == "esperlu": #  à modifier pour gérer les pointeurs
+    #    newe = Tree('var', [Token('IDENTIFIER', e.children[0].value)])
+    #    return asm_exp(newe, available_registers)
+    
+    
+    if e.data == "esperlu":
+        reg = available_registers[0]
+        return f"lea {reg}, [{e.children[0].value}]"
+
 
     if e.data == "operation":
         # Optimisation de type x+x
@@ -176,6 +206,7 @@ def asm_cmd(c):
     if c.data == "declaration":
         return ""
     if c.data == "affectation":
+
         asm_code, result_reg = asm_exp(c.children[1])
         return f"""{asm_code}
 mov [{c.children[0].children[0]}], {result_reg}"""
@@ -243,7 +274,7 @@ def initialisation_variables(liste_vars):
 
 def asm_prg(p):
     if p.data == "main":
-        return f"""extern printf, atoi
+        return f"""extern printf, atoi, malloc
 section .data
 argv: dq 0
 {declaration_variables()}
@@ -379,7 +410,7 @@ if __name__ == "__main__":
     
     # for i in liste_vars_global:
     #     print(f"{i} : {liste_vars_global[i]}")
-    
+
     # Assembly code generated
     asm = asm_prg(ast)
     with open(asm_file, "w") as f:
