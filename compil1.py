@@ -131,7 +131,7 @@ def asm_exp(e, available_registers=None):
         return f"mov {reg}, {e.children[0].value}", reg
     
     if e.data == "double":
-        val = str(e.children[0].value)
+        val = f"__float64__({str(e.children[0].value)})"
         label = f"float_{str(e.children[0].value).replace('.', '_').replace('-', 'm')}"
         double_literals.add((label, val))
         return f"movsd xmm0, [{label}]", "xmm0"
@@ -512,8 +512,8 @@ if __name__ == "__main__":
     verif_type(ast)
 
     #print(ast.children[1])
-    print(f"\n\n{ast.children[2]}")
-    print(f"\n\n{asm_exp(ast.children[2])}")
+    #print(f"\n\n{ast.children[2]}")
+    #print(f"\n\n{asm_exp(ast.children[2])}")
     
     # for i in liste_vars_global:
     #     print(f"{i} : {liste_vars_global[i]}")
