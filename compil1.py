@@ -395,7 +395,7 @@ def verif_type_exp(e):
 
 if __name__ == "__main__":
     
-    code_file= "testopti.c"
+    code_file= "simple.c"
     asm_file=code_file.replace(".c",".asm")
     asm_optimized_file=asm_file.replace(".asm","_optimized.asm")
     

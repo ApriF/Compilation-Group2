@@ -56,12 +56,14 @@ main(int arg1, double arg2) {
 - **Pointeurs** : `&` (adresse), `*` (déréférencement)
 - **Allocation mémoire** : `malloc()` (syntaxe seulement)
 
+La prise en compte des pointeurs, des doubles ou l'optimisation de code sont dans 3 branches distinctes et ne fonctionnent pas ensemble.
+
 ## Comment l'utiliser
 
 1. Écrire votre programme le fichier `simple.c` qui doit se trouver au même endroit que le fichier `compil1.py`
 2. Exécuter ces trois lignes de bash :
    ```bash
-   python compil1.py > simple.asm
+   python compil1.py > simple.asm   |  ou simplement exécuter le code python, cela dépend des branches.
    nasm -f elf64 simple.asm
    gcc -no-pie simple.o
    ```
@@ -92,46 +94,146 @@ main(int arg1, double arg2) {
 ## Exemple
 **Entrée (programme.c)** :
 ```c
-main(int n) {
-    int x = n * 2;
-    if (x > 10) {
-        printf(x);
+main(int x,int y,int z){
+    int c;
+    c=0;
+    int d;
+    d=0;
+    int e;
+    e=5;
+    if (c){
+        x=x+1;
     }
-    return (x);
+    else{
+        x=x+x;
+    }
+    if (d){
+        z=10;
+        printf(z);
+    }
+    while(x){
+        x=x-1;
+        y=y+3;
+        z=z+z;
+        c=c+5;
+        d=d-1;
+    }
+    z=x+y+z+(d+d+d);
+    y=y+e;
+    return(z);
 }
+
+
 ```
 
 **Sortie ASM** :
 ```nasm
-extern printf, atoi
+extern printf, atoi, malloc
 section .data
-n: dq 0
+argv: dq 0
 x: dq 0
-fmt: db "%d", 10, 0
+y: dq 0
+z: dq 0
+c: dq 0
+d: dq 0
+e: dq 0
 
-section .text
+fmt: db "%d", 10,0
+
 global main
+section .text
 main:
-    push rbp
-    mov [argv], rsi
-    mov rdi, [rbx+8]
-    call atoi
-    mov [n], rax
-    mov r8, [n]
-    imul r8, 2
-    mov [x], r8
-    cmp r8, 10
-    jle .end_if
-    mov rdi, fmt
-    mov rsi, [x]
-    xor rax, rax
-    call printf
-.end_if:
-    mov r8, [x]
-    mov rdi, fmt
-    mov rsi, r8
-    xor rax, rax
-    call printf
-    pop rbp
-    ret
+push rbp
+mov [argv], rsi
+mov rbx, [argv]
+mov rdi, [rbx+8]
+call atoi
+mov [x], rax
+mov rbx, [argv]
+mov rdi, [rbx+16]
+call atoi
+mov [y], rax
+mov rbx, [argv]
+mov rdi, [rbx+24]
+call atoi
+mov [z], rax
+
+
+mov r8, 0
+mov [c], r8
+
+mov r8, 0
+mov [d], r8
+
+mov r8, 5
+mov [e], r8
+mov r8, [c]
+cmp r8, 0
+jz at15
+mov r8, [x]
+mov r9, 1
+add r8, r9
+mov [x], r8
+jmp end15
+at15: mov r8, [x]
+add r8, [x]
+mov [x], r8
+end15: nop
+mov r8, [d]
+cmp r8, 0
+jz at19
+mov r8, 10
+mov [z], r8
+mov r8, [z]
+mov rdi, fmt
+mov rsi, r8
+xor rax, rax
+call printf
+jmp end19
+at19: nop
+end19: nop
+loop23: mov r8, [x]
+cmp r8, 0
+jz end23
+mov r8, [x]
+mov r9, 1
+sub r8, r9
+mov [x], r8
+mov r8, [y]
+mov r9, 3
+add r8, r9
+mov [y], r8
+mov r8, [z]
+add r8, [z]
+mov [z], r8
+mov r8, [c]
+mov r9, 5
+add r8, r9
+mov [c], r8
+mov r8, [d]
+mov r9, 1
+sub r8, r9
+mov [d], r8
+jmp loop23
+end23: nop
+mov r8, [x]
+add r8, [y]
+mov r9, [z]
+add r8, r9
+mov r9, [d]
+add r9, [d]
+mov r10, [d]
+add r9, r10
+add r8, r9
+mov [z], r8
+mov r8, [y]
+add r8, [e]
+mov [y], r8
+mov r8, [z]
+mov rdi, fmt
+mov rsi, r8
+xor rax, rax
+call printf
+pop rbp
+ret
 ```
