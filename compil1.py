@@ -108,7 +108,7 @@ def pp_programme(p):
         ret += "}"
         return ret
       
-op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", ">": "cmp", "<": "cmp", "==": "cmp"}
+op2asm = {"+": "add", "-": "sub", "*": "imul", "==": "cmp"}
 
 def recursive_deref(e, available_registers):
     reg = available_registers[0]
