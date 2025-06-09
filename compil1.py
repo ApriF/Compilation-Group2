@@ -341,11 +341,14 @@ jmp loop{compteur_local}
 end{compteur_local}: nop
 """
 
-def declaration_variables():# ne gère que les entiers -> à upgrade avec les versions float et ptr
+def declaration_variables():
     global liste_vars_global
     declarations = ""
     for var in liste_vars_global:
-        declarations += f"{var}: dq 0\n"
+        if liste_vars_global[var].children[0] == "double":
+            declarations += f"{var}: dq __float64__(0.0)\n"
+        else:
+            declarations += f"{var}: dq 0\n"
     return declarations
 
 def initialisation_variable(var, compteur):
