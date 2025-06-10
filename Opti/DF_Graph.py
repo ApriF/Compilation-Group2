@@ -39,15 +39,7 @@ def data_flow_graph(asm_code):
 
     #Verifs 
 
-    print("Nombre de lignes de l'assembleur initial:",N)
-    print("Nombre de lignes du début:", len(debut_untouched))
-    print("Variables",variables)
-    print("Nombre de lignes du corps:", M_naze)
-    print("1ère instruction à analyser:", to_analine[0])
-    print("Dernière instruction à analyser:", to_analine[-1])
-    print("Nombre de lignes de la fin:", len(fin_untouched))
-    print("Nombre de lignes à analyser:",M)
-    assert N== len(debut_untouched) + M_naze + len(fin_untouched), "Total lines do not match!"
+    assert N== len(debut_untouched) + M_naze + len(fin_untouched), "Parse error: total lines don't match!"
 
     #Pré-analyse
 
