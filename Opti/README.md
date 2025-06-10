@@ -87,13 +87,15 @@ La prise en compte des pointeurs, des doubles ou l'optimisation de code sont dan
 - Pas de déclaration et d'assignation simultanés des variables (ex: `int x=0;`)
 - Pas d'optimisation de branchement (les sauts et sauts conditionnels sont nécessairement conservés)
 
-### Visualisation de Data Flow Graph (graphe de flot de données) 
+# Visualisation de Data Flow Graph (graphe de flot de données) 
 Il est possible de visualiser directement le Data Flow Graph correspondant à un fichier assembleur.
 Après avoir générer l'assembleur `simple.asm` à l'aide du compilateur, exécuter le fichier python `DF_Graph.py`
+
 Il génère:
   - Le code assembleur véritablement analysé à des fins d'optimisation dans le fichier `simple_analyzed.asm`
   - Le code assembleur optimisé `simple_optimized.asm`
   - Un graphe représentant l'état des dépendances de chaque variable/registre à chaque ligne d'assembleur. Les chemins surlignés en orange sont ceux que prennent les valeurs nécessaires au programme (celles qui contribuent au return ou à un print par exemple, ainsi que les balises et sauts qui ne sont pas optimisés)
+
 Comme pour `CompilOpti.py`, il est possible choisir l'assembleur traité, en fournissant à la ligne 353 le chemin du code assembleur à analyser.
 
 ## Exemple
