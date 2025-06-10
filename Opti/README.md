@@ -89,7 +89,7 @@ La prise en compte des pointeurs, des doubles ou l'optimisation de code sont dan
 
 # Visualisation de Data Flow Graph (graphe de flot de données) 
 Il est possible de visualiser directement le Data Flow Graph correspondant à un fichier assembleur.
-Après avoir générer l'assembleur `simple.asm` à l'aide du compilateur, exécuter le fichier python `DF_Graph.py`
+Après avoir généré l'assembleur `simple.asm` à l'aide du compilateur `CompilOpti.py` par exemple, exécutez le fichier python `DF_Graph.py`
 
 Il génère:
   - Le code assembleur véritablement analysé à des fins d'optimisation dans le fichier `simple_analyzed.asm`
